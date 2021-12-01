@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "advent2021"
+version = "0.1.0"
+description = ""
+authors = ["matejcik <ja@matejcik.cz>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+[tool.poetry.dev-dependencies]
+ipython = "*"
+jupyter = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
