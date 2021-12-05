@@ -1,74 +1,69 @@
-from collections import Counter
-from typing import Tuple
-
-GRID = Counter()
-
-Point = Tuple[int, int]
+from dataclasses import dataclass
+from collections import namedtuple, Counter
+from typing import Iterable
 
 
-def print_grid():
+Point = namedtuple("Point", "x, y")
+
+@dataclass
+class Line:
+    a: Point
+    b: Point
+
+    @staticmethod
+    def interpolate(start: int, end: int, dist: int) -> Iterable[int]:
+        step = (end - start) / dist
+        for i in range(dist + 1):
+            yield round(start + step * i)
+
+    def all_points(self) -> Iterable[Point]:
+        dist = max(abs(self.a.x - self.b.x), abs(self.a.y - self.b.y))
+        xs = self.interpolate(self.a.x, self.b.x, dist)
+        ys = self.interpolate(self.a.y, self.b.y, dist)
+        for x, y in zip(xs, ys):
+            yield Point(x, y)
+
+    def is_parallel_to_axis(self) -> bool:
+        return self.a.x == self.b.x or self.a.y == self.b.y
+
+    def dump(self) -> None:
+        for point in self.all_points():
+            print(f"{point.x},{point.y}, ", end="")
+        print()
+
+
+def print_grid(grid: Counter) -> None:
     maxx = maxy = 0
-    for x, y in GRID.keys():
+    for x, y in grid.keys():
         maxx = max(maxx, x)
         maxy = max(maxy, y)
     for y in range(maxy + 1):
         for x in range(maxx + 1):
-            print(GRID[(x, y)] or ".", end='')
+            print(grid[(x, y)] or ".", end='')
         print()
 
 
 def mkpoint(point: str) -> Point:
     x, y = point.split(',')
-    return int(x), int(y)
+    return Point(int(x), int(y))
 
 
-def add_line(a: Point, b: Point) -> None:
-    ax, ay = a
-    bx, by = b
-    if ax == bx:
-        for y in range(min(ay, by), max(ay, by) + 1):
-            GRID[(ax, y)] += 1
-    elif ay == by:
-        for x in range(min(ax, bx), max(ax, bx) + 1):
-            GRID[(x, ay)] += 1
+def count_intersections(lines: Iterable[Line]) -> int:
+    grid = Counter(p for line in lines for p in line.all_points())
+    # print_grid(grid)
+    return sum(v > 1 for v in grid.values())
 
 
-def add_diagonal_line(a: Point, b: Point) -> None:
-    left, right = min(a, b), max(a, b)
-    lx, ly = left
-    rx, ry = right
-
-    if lx == rx or ly == ry:
-        return
-
-    if ly > ry:
-        dir_y = -1
-    else:
-        dir_y = 1
-
-    for ofs in range(rx - lx + 1):
-        GRID[(lx + ofs, ly + ofs * dir_y)] += 1
+LINES = []
 
 
 with open("05.txt") as f:
-    for line in f:
-        l, _, r = line.split()
+    for inp in f:
+        l, _, r = inp.split()
         a = mkpoint(l)
         b = mkpoint(r)
-        add_line(a, b)
+        LINES.append(Line(a, b))
 
-
-intersection_count = sum(v > 1 for v in GRID.values())
-print(f"Part 1: {intersection_count}")
-
-with open("05.txt") as f:
-    for line in f:
-        l, _, r = line.split()
-        a = mkpoint(l)
-        b = mkpoint(r)
-        add_diagonal_line(a, b)
-
-intersection_count = sum(v > 1 for v in GRID.values())
-print(f"Part 2: {intersection_count}")
-
-# print_grid()
+lines_pt1 = (line for line in LINES if line.is_parallel_to_axis())
+print(f"Part 1: {count_intersections(lines_pt1)}")
+print(f"Part 2: {count_intersections(LINES)}")
