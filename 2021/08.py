@@ -24,30 +24,30 @@ def analyze_digits(entries: Iterable[frozenset[str]]) -> list[frozenset[str]]:
     # discriminate between 6, 9, 0 (length 6)
     sixes = lengths[6]
     assert len(sixes) == 3
-    for six in sixes:
-        if len(six - seven) == 4:
+    for candidate in sixes:
+        if len(candidate - seven) == 4:
             # it's a 6
-            digits[6] = six
-        elif len(six - four) == 2:
+            digits[6] = candidate
+        elif len(candidate - four) == 2:
             # it's a 9
-            digits[9] = six
+            digits[9] = candidate
         else:
             # it's a 0
-            digits[0] = six
+            digits[0] = candidate
 
     # discriminate between 5, 3, 2 (length 5)
     fives = lengths[5]
     assert len(fives) == 3
-    for five in fives:
-        if len(five - seven) == 2:
+    for candidate in fives:
+        if len(candidate - seven) == 2:
             # it's a 3
-            digits[3] = five
-        elif len(five - four) == 2:
+            digits[3] = candidate
+        elif len(candidate - four) == 2:
             # it's a 5
-            digits[5] = five
+            digits[5] = candidate
         else:
             # it's a 2
-            digits[2] = five
+            digits[2] = candidate
 
     assert all(d is not None for d in digits)
     return digits  # type: ignore
