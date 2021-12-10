@@ -24,7 +24,7 @@ def score_error_or_autocomplete(line: str) -> tuple[int, int]:
         elif char == stack[-1]:
             stack.pop()
         else:
-            return SCORE[char], score_stack(stack)
+            return SCORE[char], 0
 
     return 0, score_stack(stack)
 
@@ -37,7 +37,7 @@ with open("10.txt") as f:
         line = line.strip()
         score, stack = score_error_or_autocomplete(line)
         syntax_error_score += score
-        if not score:
+        if stack:
             stack_scores.append(stack)
 
 stack_scores.sort()
