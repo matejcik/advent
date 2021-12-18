@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import math
 from collections import namedtuple
+from functools import reduce
+from operator import add
 from typing import Iterable, TypeVar, Callable
 
 from more_itertools import peekable
@@ -88,43 +90,43 @@ class SnailfishNumber:
                 break
 
     def __add__(self, other: SnailfishNumber) -> SnailfishNumber:
+        if not self:
+            return other
         new_number = SnailfishNumber(
             Element(e.depth + 1, e.value) for e in self.number + other.number
         )
         new_number.reduce()
         return new_number
 
-    def dump(self) -> str:
-        depths = "".join(str(e.depth) for e in self.number)
-        values = "".join(str(e.value) for e in self.number)
-        return f"{depths}\n{values}"
-
     @classmethod
-    def _dfs_visit_pair(
-        cls, number: peekable[Element], visitor: Callable[[int, int], int], depth: int
-    ) -> int:
-        left = cls._dfs_visit_single(number, visitor, depth)
-        right = cls._dfs_visit_single(number, visitor, depth)
-        return visitor(left, right)
+    def _dfs_visit(
+        cls,
+        number: peekable[Element],
+        node_visitor: Callable[[T, T], T],
+        leaf_visitor: Callable[[int], T],
+        depth: int,
+    ) -> T:
+        def next_item() -> T:
+            elem = number.peek()
+            if elem.depth == depth:
+                next(number)
+                return leaf_visitor(elem.value)
+            else:
+                return cls._dfs_visit(number, node_visitor, leaf_visitor, depth + 1)
 
-    @classmethod
-    def _dfs_visit_single(
-        cls, number: peekable[Element], visitor: Callable[[int, int], int], depth: int
-    ) -> int:
-        current_elem = number.peek()
-        if current_elem.depth == depth:
-            next(number)
-            return current_elem.value
+        left = next_item()
+        right = next_item()
+        return node_visitor(left, right)
 
-        if current_elem.depth > depth:
-            return cls._dfs_visit_pair(number, visitor, depth + 1)
-
-        # current_elem.depth < depth
-        raise ValueError("invalid tree struct?")
-
-    def dfs_visit(self, visitor: Callable[[int, int], int]) -> int:
+    def dfs_visit(
+        self, node_visitor: Callable[[T, T], T], leaf_visitor: Callable[[int], T] = int
+    ) -> T:
+        assert self, "empty"
         p = peekable(self.number)
-        return self._dfs_visit_pair(p, visitor, 1)
+        return self._dfs_visit(p, node_visitor, leaf_visitor, 1)
+
+    def __bool__(self) -> bool:
+        return bool(self.number)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SnailfishNumber):
@@ -132,23 +134,7 @@ class SnailfishNumber:
         return self.number == other.number
 
     def __str__(self) -> str:
-        chars = []
-        depth = 0
-        for elem in self.number:
-            while depth < elem.depth:
-                if chars and chars[-1].isdigit():
-                    chars.append(",")
-                chars.append("[")
-                depth += 1
-            while depth > elem.depth:
-                chars.append("]")
-                depth -= 1
-            if chars and (chars[-1].isdigit() or chars[-1] == "]"):
-                chars.append(",")
-            chars.append(str(elem.value))
-        for _ in range(depth):
-            chars.append("]")
-        return "".join(chars)
+        return self.dfs_visit(lambda x, y: f"[{x},{y}]", str)
 
 
 def magnitude(left: int, right: int) -> int:
@@ -178,6 +164,7 @@ def test_magnitude():
     mag = number.dfs_visit(magnitude)
     assert mag == 143
 
+
 def test_addition():
     a = SnailfishNumber.parse("[[[[4,3],4],4],[7,[[8,4],9]]]")
     b = SnailfishNumber.parse("[1,1]")
@@ -185,11 +172,20 @@ def test_addition():
 
 
 if __name__ == "__main__":
+    NUMBERS: list[SnailfishNumber] = []
     with open("18.txt") as f:
-        number = SnailfishNumber([])
         for line in f:
-            number += SnailfishNumber.parse(line.strip())
-            print(number.dump())
-            print("---")
-        mag = number.dfs_visit(magnitude)
-        print(f"Part 1: {mag}")
+            NUMBERS.append(SnailfishNumber.parse(line.strip()))
+
+    sum_of_all: SnailfishNumber = reduce(add, NUMBERS)
+    print(f"Part 1: {sum_of_all.dfs_visit(magnitude)}")
+
+    max_mag = 0
+    for i, a in enumerate(NUMBERS):
+        for j, b in enumerate(NUMBERS):
+            if i == j:
+                continue
+            mag = (a + b).dfs_visit(magnitude)
+            max_mag = max(mag, max_mag)
+
+    print(f"Part 2: {max_mag}")
