@@ -7,6 +7,7 @@ from operator import add
 from typing import Iterable, TypeVar, Callable
 
 from more_itertools import peekable
+from contexttimer import Timer
 
 T = TypeVar("T")
 Element = namedtuple("Element", "depth, value")
@@ -79,15 +80,12 @@ class SnailfishNumber:
         return False
 
     def reduce(self) -> None:
-        changed = True
-        while changed:
-            changed = False
-            while self.explode():
-                changed = True
-            while self.split():
-                changed = True
-                # unlike before, we need to break here in case an explode() is needed
-                break
+        while True:
+            if self.explode():
+                continue
+            if self.split():
+                continue
+            break
 
     def __add__(self, other: SnailfishNumber) -> SnailfishNumber:
         if not self:
@@ -180,12 +178,13 @@ if __name__ == "__main__":
     sum_of_all: SnailfishNumber = reduce(add, NUMBERS)
     print(f"Part 1: {sum_of_all.dfs_visit(magnitude)}")
 
-    max_mag = 0
-    for i, a in enumerate(NUMBERS):
-        for j, b in enumerate(NUMBERS):
-            if i == j:
-                continue
-            mag = (a + b).dfs_visit(magnitude)
-            max_mag = max(mag, max_mag)
+    with Timer(factor=1000) as t:
+        max_mag = 0
+        for i, a in enumerate(NUMBERS):
+            for j, b in enumerate(NUMBERS):
+                if i == j:
+                    continue
+                mag = (a + b).dfs_visit(magnitude)
+                max_mag = max(mag, max_mag)
 
-    print(f"Part 2: {max_mag}")
+    print(f"Part 2: {max_mag} ({t.elapsed} ms)")
