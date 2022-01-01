@@ -44,10 +44,10 @@ knowledge to reduce the search space.
 
 **If you don't know about the brute-force solution...**
 
-I learned about [Matt Keeter]'s solution from Reddit. Unlike the standard approach, this
+I learned about [Matt Keeter's solution] from Reddit. Unlike the standard approach, this
 solution is _general_: it can solve any program, not just the one from the puzzle.
 
-[Matt Keeter]: https://www.mattkeeter.com/blog/2021-12-27-brute/
+[Matt Keeter's solution]: https://www.mattkeeter.com/blog/2021-12-27-brute/
 
 The basic idea is, instead of trying the full calculation 22 trillion times, we can keep
 track of what the _possible states_ of the computer are at any given step.
@@ -141,7 +141,7 @@ all possible states at once.
 class NonDeterministicALU:
     def __init__(self):
         # at start, we only have one all-zero state
-        self.states: list[ALUState] = [ALUState()]
+        self.states = [ALUState()]
 
     def run(self, program):
         """Run whole program."""
@@ -271,9 +271,11 @@ print("Minimum:", result_min)
 print("Maximum:", result_max)
 ```
 
-Off the screen, I'll add some timing information... and
+Off the screen, I'll add some timing information ([complete source](trillion/trillion-naive.py)) ... and
+
 
 ## Let's run it!
+
 
 ```
 % python trillion.py
@@ -333,3 +335,195 @@ calculation overflows to swap, it grinds to a halt. It might not finish in time 
 next Advent.
 
 We need to reduce RAM usage somehow.
+
+## Reducing RAM usage
+
+First idea: the ALU state is just six numbers. We don't need a dict and a class to
+represent six numbers, we could use a simple list.
+
+Each state will be represented by a list of six numbers. Indices 0 to 3 represent
+registers `x` to `w`. Index 4 is minimum and index 5 is maximum.
+
+```python
+# instead of
+state.regs[dest] = value
+state.min = some_minimum
+# do
+dest_reg = REGISTERS.index[dest]
+state[dest_reg] = value
+state[STATE_MIN] = some_minimum
+```
+
+Not much more interesting beyond that, you can [see the code](trillion/trillion-with-list.py)
+for yourself.
+
+Trying again:
+```
+...
+=== digit 7 ===
+deduplication: 0.043 s
+expansion: 0.553 s
+continuing with 590490 states
+=== digit 8 ===
+deduplication: 0.472 s
+expansion: 0.745 s
+continuing with 721710 states
+=== digit 9 ===
+deduplication: 0.480 s
+expansion: 6.421 s
+continuing with 5878656 states
+=== digit 10 ===
+deduplication: 4.515 s
+expansion: 58.542 s
+continuing with 52907904 states
+```
+Better!
+```
+=== digit 11 ===
+[1]    225074 killed     python trillion-with-list.py
+```
+Killed before deduplication finished! **Oh no!** The list of states is now so large that
+we can't even construct the deduplicating dict.
+
+Or maybe the list of `new_states` is the problem... Let's try a tweak.
+```python
+    def deduplicate(self):
+        known_states = {}
+        cursor = 0
+        for current in range(len(self.states)):
+            state = self.states[current]
+            key = tuple(state[:4])
+            if key in known_states:
+                self.update_minmax(known_states[key], state)
+            else:
+                known_states[key] = state
+                self.states[cursor] = state
+                cursor += 1
+        del self.states[cursor:]
+```
+Instead of creating a new list of states, we will reuse the existing one. `cursor`
+points to the first spot that we can replace. At start, the "replace" will be a no-op,
+we will be replacing the state with itself. In all subsequent cases, we are replacing
+something that was either (a) already moved to the front, or (b) ignored because it is a
+duplicate state.
+
+At the end, we delete the rest of the list, so that only the copied-over states remain.
+
+[Trying](trillion/trillion-list-dedup.py)...
+```
+=== digit 11 ===
+deduplication: 46.264 s
+[1]    226107 killed     python trillion-list-dedup.py
+```
+Well look at that, it helped!
+
+A little.
+
+First of all, the deduplication now takes 46 seconds. Second, we are at the limit
+anyway, the expansion step won't finish.
+
+## What's smaller than a list?
+
+A list of six numbers _should_ be small. But it really isn't. For one, Python's lists
+can store any object. This means that the list actually stores _pointers_. For every
+item, you need to store 8-byte pointer, plus the item object itself.
+
+Python's numbers are also objects. Even if a 64-bit number only takes 64 bits (8 bytes)
+of memory, there is at least 8 more bytes indicating object type. There is some sort of
+optimization for "small numbers", but we can't be sure that it applies for our usecase.
+
+(This is true for CPython, the "official" interpreter from [python.org]. It just might
+turn out that using, e.g., [PyPy], our RAM requirements would be lower from the get-go
+and we could just stop here.)
+
+[python.org]: https://www.python.org/
+[PyPy]: https://pypy.org/
+
+Enter [`array`](https://docs.python.org/3/library/array.html). It's an "efficient array
+of numeric values". Which is exactly what we need here.
+
+Let's try it. The change is basically two lines:
+```python
+from array import array
+
+class NonDeterministicALU:
+    def __init__(self):
+        # instead of:
+        # self.states = [[0] * 6]
+        # use:
+        self.states = [array('q', [0] * 6)]
+```
+Using `'q'` for the data type, which is a "signed long long", or, in human speak, a
+64-bit signed integer. We don't know how big the numbers get during the computation, but
+we do know that negative values are allowed, so I'm picking the largest number type that
+I have. It takes 8 bytes of memory, but can never grow beyond that.
+
+Running [the program](trillion/trillion-array.py) again...
+```
+=== digit 10 ===
+deduplication: 5.544 s
+expansion: 37.640 s
+continuing with 52907904 states
+```
+Twice as fast as before, half as much RAM consumed. We're now at 6 GB. The previous
+version consumed 13 GB for digit 10.
+```
+=== digit 11 ===
+deduplication: 58.994 s
+expansion: 65.493 s
+continuing with 88179840 states
+=== digit 12 ===
+deduplication: 98.897 s
+expansion: 71.800 s
+continuing with 101702790 states
+=== digit 13 ===
+deduplication: 107.779 s
+expansion: 59.891 s
+continuing with 95866416 states
+=== digit 14 ===
+deduplication: 102.136 s
+expansion: 68.294 s
+continuing with 107811162 states
+Computation finished in 1623.035 s
+Minimum: 41171183141291
+Maximum: 91398299697996
+```
+**...and done.**
+
+RAM usage peaked around 14 GB. Fortunately, it turns out that in this puzzle, the number
+of states stops growing too fast around digit 11.
+
+Total comuputation time is **1 623 seconds**. Not awesome, especially compared to the
+[Rust solution] which can do the same in 30 seconds. But pretty good, all things
+considered!
+
+[Rust solution]: https://www.mattkeeter.com/blog/2021-12-27-brute/
+
+
+## Can we do better?
+
+We can do so, so much better.
+
+Not with stock Python though. We need to use [NumPy].
+
+[NumPy]: https://numpy.org/
+
+NumPy is a library for doing what amounts to magic on multi-dimensional arrays. Remember this?
+```python
+    def execute_literal(self, instr_func, dest, val):
+        """Execute an instruction that takes a literal value."""
+        for state in self.states:
+            # call the `instr_func` on a register and value
+            state[dest] = instr_func(state[dest], val)
+```
+With NumPy, it looks like this:
+```python
+    def execute_literal(self, instr_func, dest, val):
+        """Execute an instruction that takes a literal value."""
+        self.states[:, dest] = instr_func(self.states[:, dest], val)
+```
+
+Wait what? Where did the for-loop go?
+
+NumPy can helpfully do the mathematical operation _on all the states at once_. It's
+highly optimized, too, so much faster than doing it in a Python for-loop.
