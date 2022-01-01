@@ -21,8 +21,8 @@ a [clever general solution] and decided to try to implement it myself.
 **If you don't know about Advent of Code...**
 
 [Advent of Code] is a programming game that runs every year for the 25 days of Advent.
-You're given a two-part puzzle every day. Usually, day 1 is the easier version and day 2
-is much harder variant reusing the same input.
+You're given a two-part puzzle every day. Usually, part 1 is the easier version and part
+2 is a much harder variant reusing the same input.
 
 **If you don't know about 2021 day 24...**
 
@@ -89,12 +89,11 @@ smallest number that got us to some state; one of those will be the answer.
 Here is a high-level outline of how the solution will work:
 
 1. Read the next instruction.
-2. If it is anything else than `inp`, execute it on all currently tracked states and
-   goto 1.  
-   Process `inp` instruction by continuing:
-3. Deduplicate states: identify states that are the same and collapse them into one,
-   keeping the minimum and the maximum that got us there.
-4. Make 9 copies of each state. Set the input digit to be different in each copy.
+2. If it is anything else than `inp`, execute it on all currently tracked states.
+3. If it is `inp`:
+    1. Deduplicate states: identify states that are the same and collapse them into one,
+    keeping the minimum and the maximum that got us there.
+    2. Make 9 copies of each state. Set the input digit to be different in each copy.
 5. Repeat until end of program.
 
 

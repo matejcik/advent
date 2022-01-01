@@ -175,7 +175,11 @@ pre {
   word-wrap: break-word;
 }
 
-code {
+pre > code {
+  padding: 0;
+}
+
+p code {
   font-family: 'Source Code Pro',monospace;
   background: none repeat scroll 0 0 #F0F0F0;
   border-radius: 3px;
