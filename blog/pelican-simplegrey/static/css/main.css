@@ -175,6 +175,16 @@ pre {
   word-wrap: break-word;
 }
 
+code {
+  font-family: 'Source Code Pro',monospace;
+  background: none repeat scroll 0 0 #F0F0F0;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-style: normal;
+  letter-spacing: 0.015em;
+  padding: 0.15em 0.4em;
+}
+
 hr {
   margin: 40px 5% 60px 5%;
   color: #d6d6d6;
