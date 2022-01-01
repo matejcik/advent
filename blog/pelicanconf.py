@@ -1,12 +1,12 @@
-AUTHOR = 'matejcik'
-SITENAME = 'advent things'
-SITEURL = 'https://advent.matejcik.cz'
+AUTHOR = "matejcik"
+SITENAME = "advent things"
+SITEURL = "https://advent.matejcik.cz"
 
-PATH = 'content'
+PATH = "content"
 
-TIMEZONE = 'Europe/Prague'
+TIMEZONE = "Europe/Prague"
 
-DEFAULT_LANG = 'en'
+DEFAULT_LANG = "en"
 
 # Feed generation is usually not desired when developing
 FEED_ALL_ATOM = None
@@ -22,5 +22,15 @@ AUTHOR_FEED_RSS = None
 #          ('Simplegrey', 'https://github.com/fle/pelican-simplegrey/tree/257e30c7e0091df2198b2c778754cd6f23112068'),)
 
 # Social widget
-SOCIAL = (('GitHub', 'https://github.com/matejcik/advent'),
-          ('Reddit', 'https://www.reddit.com/user/matejcik/'),)
+SOCIAL = (
+    ("GitHub", "https://github.com/matejcik/advent"),
+    ("Reddit", "https://www.reddit.com/user/matejcik/"),
+)
+
+
+DEFAULT_PAGINATION = False
+
+THEME = "pelican-simplegrey"
+
+# Uncomment following line if you want document-relative URLs when developing
+RELATIVE_URLS = True
