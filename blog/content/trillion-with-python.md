@@ -453,11 +453,12 @@ class NonDeterministicALU:
         self.states = [array('q', [0] * 6)]
 ```
 Using `'q'` for the data type, which is a "signed long long", or, in human speak, a
-64-bit signed integer. We don't know how big the numbers get during the computation, but
-we do know that negative values are allowed, so I'm picking the largest number type that
-I have. It takes 8 bytes of memory, but can never grow beyond that.
+64-bit integer with support for negative values. We don't know how big the numbers get
+during the computation, but we do know that negative values are allowed, so I'm picking
+the largest number type that I have. It takes 8 bytes of memory, but can never grow
+beyond that.
 
-Running [the program](trillion/trillion-array.py) again...
+Running [the program](https://github.com/matejcik/advent/blob/main/2021/24-array.py) again...
 ```
 === digit 10 ===
 deduplication: 5.544 s
@@ -489,8 +490,8 @@ Maximum: 91398299697996
 ```
 **...and done.**
 
-RAM usage peaked around 14 GB. Fortunately, it turns out that in this puzzle, the number
-of states stops growing too fast around digit 11.
+RAM usage peaked around 14 GB. Fortunately, it turns out that the number of states stops
+growing around digit 11.
 
 Total comuputation time is **1 623 seconds**. Not awesome, especially compared to the
 [Rust solution] which can do the same in 30 seconds. But pretty good, all things
@@ -501,28 +502,153 @@ considered!
 
 ## Can we do better?
 
-We can do so, so much better.
+Not with stock Python. I don't know how, anyway; I could micro-optimize some parts, but
+it would shave off maybe a couple seconds.
 
-Not with stock Python though. We need to use [NumPy].
+But there's no need to stop there. Instead, let's look at [Pandas].
 
-[NumPy]: https://numpy.org/
+[Pandas]: https://pandas.pydata.org/
 
-NumPy is a library for doing what amounts to magic on multi-dimensional arrays. Remember this?
+Pandas is a data science library, designed to efficiently work with large data sets.
+Where "efficiently" translates to pretty much **like magic**. In the first part of the
+article, we were thinking about doing things in-place, not needlessly reallocating
+memory, looking for the most space-efficient data structures.
+
+With Pandas, I can just write what I mean and It. Just. Works. Zero hassle.
+
+First, we create a _dataframe_.
+
 ```python
-    def execute_literal(self, instr_func, dest, val):
-        """Execute an instruction that takes a literal value."""
-        for state in self.states:
-            # call the `instr_func` on a register and value
-            state[dest] = instr_func(state[dest], val)
+class NonDeterministicALU:
+    def __init__(self):
+        self.states = pd.DataFrame({
+            "x": [0], "y": [0], "z": [0], "w": [0],
+            "min": [0], "max": [0]})
 ```
-With NumPy, it looks like this:
+
+The syntax means that we have columns `"x", "y", "z", "w", "min", "max"`, and one row in
+which all columns are zero. (There are as many rows as the longest list of values passed
+in. If the lists are not the same length, the columns are padded by `None`.)
+
+Finding the minimums and maximums for the puzzle answer is **super easy**:
 ```python
-    def execute_literal(self, instr_func, dest, val):
-        """Execute an instruction that takes a literal value."""
-        self.states[:, dest] = instr_func(self.states[:, dest], val)
+    def find_puzzle_answer(self):
+        zero_states = self.states[self.states["z"] == 0]
+        result_min = zero_states["min"].min()
+        result_max = zero_states["max"].max()
+        return result_min, result_max
+```
+The first line selects only those states where `z == 0`. The other lines take minimum and maximum from the respective columns.
+
+```python
+    def execute(self, line):
+        if line.startswith("inp"):
+            self.execute_input(line)
+            return
+
+        # split into instruction, destination register and source
+        instr, dest, src = line.split()
+        instr_func = INSTRUCTIONS[instr]
+        if src in REGISTERS:
+            src_col = self.states[src]
+            self.states[dest] = instr_func(self.states[dest], src_col)
+        else:
+            self.states[dest] = instr_func(self.states[dest], int(src))
 ```
 
-Wait what? Where did the for-loop go?
+`self.states[dest]` is the destination column `x`, `y` `z` or `w`. There is no iterating
+over rows. I'm calling a function (like `pandas.Series.add`) **on the whole column at
+once.**
 
-NumPy can helpfully do the mathematical operation _on all the states at once_. It's
-highly optimized, too, so much faster than doing it in a Python for-loop.
+```python
+    def expand_states_into(self, dest):
+        new_states = []
+        for digit in range(1, 10):
+            states = self.states.copy()
+            states[dest] = digit
+            states["min"] = states["min"] * 10 + digit
+            states["max"] = states["max"] * 10 + digit
+            new_states.append(states)
+        self.states = pd.concat(new_states)
+        self.states.reset_index(drop=True, inplace=True)
+```
+
+For every digit, I take a copy of the whole state and set the right digit on the copy.
+Then I just concatenate all the copies together and save the new state. Notice how,
+again, we can set the whole column at once.
+
+(The `reset_index()` bit at the end is for bookkeeping: Pandas keeps an "index" for
+every row, and weird things happen when you concatenate two datasets that have the same
+indices. I am not using the index anywhere, but calling `reset_index()` like this has
+avoided me some problems.)
+
+Finally, the most difficult bit, deduplication:
+```python
+    def deduplicate(self):
+        groups = self.states.groupby(["x", "y", "z", "w"], sort=False)
+        self.states = groups.aggregate(
+            {"x": "first", "y": "first", "z": "first", "w": "first",
+             "min": "min", "max": "max"})
+        self.states.reset_index(drop=True, inplace=True)
+```
+
+`groupby()` works like SQL `GROUP BY` clause. The result is the data grouped by the
+selected columns -- i.e., all rows that have the same `x`, `y`, `z` and `w` will be in
+the same group.
+
+By default, Pandas will also sort the result, but we can save some time by not doing
+that.
+
+The `aggregate()` call will convert each group into a single row -- by taking the
+_first_ value for the `x`, `y`, `z` and `w` columns (they're all identical so it doesn't
+matter which we pick), the _minimum_ of `min`s, and the _maximum_ of `max`s.
+
+Finally, I need to call `reset_index()`, otherwise the index value is some sort of
+identifier of the original group, which really messes things up.
+
+**That's it** ([complete source]). No messing with dictionaries. I didn't need to
+iterate over `self.states` at any point. Every operation can be done via a shorthand.
+
+[complete source]: https://github.com/matejcik/advent/blob/main/2021/24.py
+
+How's the performance?
+
+```
+=== digit 10 ===
+deduplication: 6.851 s
+expansion: 1.628 s
+continuing with 52907904 states
+=== digit 11 ===
+deduplication: 21.151 s
+expansion: 2.834 s
+continuing with 88179840 states
+=== digit 12 ===
+deduplication: 31.396 s
+expansion: 3.462 s
+continuing with 101702790 states
+=== digit 13 ===
+deduplication: 33.273 s
+expansion: 2.884 s
+continuing with 95866416 states
+=== digit 14 ===
+deduplication: 34.208 s
+expansion: 3.966 s
+continuing with 107811162 states
+Computation finished in 174.202 s
+```
+
+**174 seconds** total, almost 10x faster than before. RAM usage peaks around 9 GB,
+meaning this fits comfortably on my laptop while the browser and vscode is running.
+
+Also, _only_ 10x slower than the best Rust solution before codegen. Considering that
+this is Python we're talking about, not bad at all.
+
+
+## Conclusion
+
+It is possible to do this in pure Python, with a little trickery. But pure Python really
+isn't built to handle large datasets. The overhead per item is too large for that.
+
+I took the opportunity to learn a bit of Pandas, and it seems that it is the right tool
+for this particular job. I will keep it in mind for future Advent of Code puzzles
+:)
