@@ -1,5 +1,5 @@
 Title: 22 trillion parameters in Python
-Date: 2022-01-01 11:00
+Date: 2022-01-03 11:00
 Category: Python
 Slug: trillion-py
 Summary: Can we brute-force a 14-digit number in Python and 16 GB of RAM?
