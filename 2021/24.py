@@ -1,192 +1,100 @@
-from __future__ import annotations
+import pandas as pd
 
-import operator
-from contextlib import contextmanager
-from enum import Enum
-from dataclasses import dataclass
-from pathlib import Path
-from time import time
-from typing import Iterator, Callable
+from contexttimer import Timer
 
-import numpy as np
+REGISTERS = "xyzw"
+REG_SELECTOR = list(REGISTERS)
 
-XYZW = "xyzw"
-"""Translation string for register indices"""
-STATE_MIN = 4
-"""Index of "minimum" field of the ALU state (minimal number from input that got us here)"""
-STATE_MAX = 5
-"""Index of "maximum" field of the ALU state (maximal number from input that got us here)"""
-
-ALUState = np.array
-Operator = Callable
-
-
-class InstructionType(Enum):
-    INPUT = 0
-    LITERAL = 1
-    REGISTER = 2
-
-
-@dataclass
-class Instruction:
-    type: InstructionType
-    operator: str
-    dest_reg: int
-    src_reg_or_val: int
-
-
-INSTRUCTION_TABLE = {
-    "add": np.ndarray.__iadd__,
-    "mul": np.ndarray.__imul__,
-    "div": np.ndarray.__ifloordiv__,
-    "mod": np.ndarray.__imod__,
+INSTRUCTIONS = {
+    "add": pd.Series.add,
+    "mul": pd.Series.mul,
+    "div": pd.Series.floordiv,
+    "mod": pd.Series.mod,
+    "eql": pd.Series.eq,
 }
 
 
-def compile(line: str) -> Instruction:
-    op, *regs = line.split()
-    dest_reg = XYZW.index(regs[0])
-    if op == "inp":
-        return Instruction(InstructionType.INPUT, op, dest_reg, 0)
-    if regs[1] in XYZW:
-        src_reg = XYZW.index(regs[1])
-        return Instruction(InstructionType.REGISTER, op, dest_reg, src_reg)
-    return Instruction(InstructionType.LITERAL, op, dest_reg, int(regs[1]))
-
-
-@contextmanager
-def dump_time(step: str, end: bool = True) -> Iterator[None]:
-    print(f"{step}... ", end="", flush=True)
-    start = time()
-    yield
-    stop = time()
-    print(f"{stop - start:.3f} s", end="... " if not end else "\n", flush=True)
-
-
 class NonDeterministicALU:
-    MAX_STATES = 150_000_000
 
-    def __init__(self, program: str) -> None:
-        self.states = np.empty(shape=(self.MAX_STATES, 6), dtype=np.int64)
-        self.states[0] = np.array([0, 0, 0, 0, 0, 0])
-        self.states_len = 1
-        self.program = [compile(line) for line in program.splitlines()]
+    def __init__(self):
+        self.states = pd.DataFrame({
+            "x": [0], "y": [0], "z": [0], "w": [0],
+            "min": [0], "max": [0]})
         self.digit = 0
 
-    def alu_update_minmax(self, state: int, other: int) -> None:
-        self.states[state][STATE_MIN] = min(
-            self.states[state][STATE_MIN], self.states[other][STATE_MIN]
-        )
-        self.states[state][STATE_MAX] = max(
-            self.states[state][STATE_MAX], self.states[other][STATE_MAX]
-        )
+    def run(self, program):
+        """Run whole program."""
+        for line in program.splitlines():
+            self.execute(line)
 
-    def dedup_numpy(self) -> None:
-        states = self.states[: self.states_len]
-        with dump_time("uniq", end=False):
-            # sort in-place with lexsort because of course this is not just sort()
-            sort_order = np.lexsort(np.flip(states.T, axis=0))
-            states.take(sort_order, axis=0, out=states)
-            uniq_states, indices = np.unique(states[:, :4], axis=0, return_index=True)
+    def find_puzzle_answer(self):
+        """Find the smallest and largest number that got us
+        to a state with zero."""
+        zero_states = self.states[self.states["z"] == 0]
+        result_min = zero_states["min"].min()
+        result_max = zero_states["max"].max()
+        return result_min, result_max
 
-            self.states_len = len(uniq_states)
-            states[: self.states_len, :STATE_MIN] = uniq_states
+    def execute(self, line):
+        """Execute one line of the program."""
+        if line.startswith("inp"):
+            # inp is handled separately
+            self.execute_input(line)
+            return
 
-        assert indices[0] == 0
-        prev = 0
-        for i, idx in enumerate(indices[1:]):
-            states[i, STATE_MIN] = states[prev:idx, STATE_MIN].min()
-            states[i, STATE_MAX] = states[prev:idx, STATE_MAX].max()
-            prev = idx
+        # split into instruction, destination register and source
+        instr, dest, src = line.split()
+        instr_func = INSTRUCTIONS[instr]
+        if src in REGISTERS:
+            self.states[dest] = instr_func(self.states[dest], self.states[src])
+        else:
+            self.states[dest] = instr_func(self.states[dest], int(src))
 
-        # final group:
-        states[self.states_len - 1, STATE_MIN] = states[prev:, STATE_MIN].min()
-        states[self.states_len - 1, STATE_MAX] = states[prev:, STATE_MAX].max()
+    def execute_input(self, line):
+        """Execute the `inp` instruction."""
+        self.digit += 1
+        print(f"=== digit {self.digit} ===")
 
-    def dedup_hashmap(self) -> None:
-        states = self.states[: self.states_len]
-        known_states: dict[tuple, int] = {}
-        cursor = 0
-        with dump_time("hashmap", end=False):
-            for idx, state in enumerate(states):
-                tpl = tuple(state[:4])
-                if tpl in known_states:
-                    self.alu_update_minmax(known_states[tpl], idx)
-                else:
-                    states[cursor] = state
-                    known_states[tpl] = cursor
-                    cursor += 1
-            self.states_len = cursor
+        instr, dest = line.split()
+        assert instr == "inp"
+        assert dest in REGISTERS
+        # first, reduce the number of states by deduplication
+        with Timer() as t:
+            self.deduplicate()
+        print(f"deduplication: {t.elapsed:.3f} s")
+        # second, make a copy of all states and set the input digit
+        with Timer() as t:
+            self.expand_states_into(dest)
+        print(f"expansion: {t.elapsed:.3f} s")
+        print("continuing with", len(self.states), "states")
 
-    def set_input_digit(self, start: int, end: int, dest_reg: int, digit: int) -> None:
-        """Perform the `inp w` instruction.
+    def deduplicate(self):
+        groups = self.states.groupby(["x", "y", "z", "w"], sort=False)
+        self.states = groups.aggregate(
+            {"x": "first", "y": "first", "z": "first", "w": "first",
+             "min": "min", "max": "max"})
+        self.states.reset_index(drop=True, inplace=True)
 
-        Sets the value of the digit into the destination register.
-        Also updates the min/max values of the state, by pushing the new digit.
-        """
-        assert start < end
-        assert 1 <= digit <= 9
-        self.states[start:end, dest_reg] = digit
-        numbers = self.states[start:end, STATE_MIN:]
-        self.states[start:end, STATE_MIN:] = numbers * 10 + digit
-        # self.states[start:end, STATE_MIN] *= 10
-        # self.states[start:end, STATE_MIN] += digit
-        # self.states[start:end, STATE_MAX] *= 10
-        # self.states[start:end, STATE_MAX] += digit
+    def expand_states_into(self, dest):
+        new_states = []
+        for digit in range(1, 10):
+            states = self.states.copy()
+            states[dest] = digit
+            states["min"] = states["min"] * 10 + digit
+            states["max"] = states["max"] * 10 + digit
+            new_states.append(states)
+        self.states = pd.concat(new_states)
+        self.states.reset_index(drop=True, inplace=True)
 
-    def do_input(self, input: Instruction) -> None:
-        with dump_time("dedup", end=False):
-            self.dedup_numpy()
-        # digits 2-9
-        with dump_time("expansion", end=False):
-            for digit in range(2, 10):
-                start = (digit - 1) * self.states_len
-                end = start + self.states_len
-                self.states[start:end] = self.states[: self.states_len]
-                self.set_input_digit(start, end, input.dest_reg, digit)
-        # digit 1
-        self.set_input_digit(0, self.states_len, input.dest_reg, 1)
+from pathlib import Path
 
-        self.states_len *= 9
+INPUT_FILE = Path("input.txt")
+alu = NonDeterministicALU()
+with Timer() as t:
+    alu.run(INPUT_FILE.read_text())
 
-    def run_instr(self, instruction: Instruction) -> None:
-        states = self.states[: self.states_len]
-        match instruction:
-            case Instruction(type=InstructionType.INPUT):
-                self.digit += 1
-                with dump_time(f"digit {self.digit}"):
-                    self.do_input(instruction)
-                print(f"{self.states_len} states after digit {self.digit}")
-            case Instruction(InstructionType.LITERAL, "eql", dest_reg, val):
-                states[:, dest_reg] = states[:, dest_reg] == val
-            case Instruction(InstructionType.LITERAL, operator, dest_reg, val):
-                op = INSTRUCTION_TABLE[operator]
-                op(states[:, dest_reg], val)
-            case Instruction(InstructionType.REGISTER, "eql", dest_reg, src_reg):
-                states[:, dest_reg] = states[:, dest_reg] == states[:, src_reg]
-            case Instruction(InstructionType.REGISTER, operator, dest_reg, src_reg):
-                op = INSTRUCTION_TABLE[operator]
-                op(states[:, dest_reg], states[:, src_reg])
+print(f"Computation finished in {t.elapsed:.3f} s")
 
-    def run(self) -> tuple[int, int]:
-        for instruction in self.program:
-            self.run_instr(instruction)
-
-        regz = XYZW.index("z")
-        states = self.states[: self.states_len]
-        z0min = states[states[:, regz] == 0, STATE_MIN].min()
-        z0max = states[states[:, regz] == 0, STATE_MAX].max()
-        # z0min = states[:, STATE_MIN].min()
-        # z0max = states[:, STATE_MAX].max()
-        return z0min, z0max
-
-
-INPUT = Path("24.txt")
-alu = NonDeterministicALU(INPUT.read_text())
-
-start = time()
-z0min, z0max = alu.run()
-end = time()
-print(f"Total time elapsed: {end - start:.4f} s")
-print(f"Part 1: {z0max}")
-print(f"Part 2: {z0min}")
+result_min, result_max = alu.find_puzzle_answer()
+print("Minimum:", result_min)
+print("Maximum:", result_max)
