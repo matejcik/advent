@@ -270,7 +270,7 @@ print("Minimum:", result_min)
 print("Maximum:", result_max)
 ```
 
-Off the screen, I'll add some timing information ([complete source](trillion/trillion-naive.py)) ... and
+Off the screen, I'll add some timing information ([complete source](https://github.com/matejcik/advent/blob/main/blog/content/trillion/trillion-naive.py)) ... and
 
 
 ## Let's run it!
@@ -353,7 +353,7 @@ state[dest_reg] = value
 state[STATE_MIN] = some_minimum
 ```
 
-Not much more interesting beyond that, you can [see the code](trillion/trillion-with-list.py)
+Not much more interesting beyond that, you can [see the code](https://github.com/matejcik/advent/blob/main/blog/content/trillion/trillion-list.py)
 for yourself.
 
 Trying again:
@@ -408,7 +408,7 @@ duplicate state.
 
 At the end, we delete the rest of the list, so that only the copied-over states remain.
 
-[Trying](trillion/trillion-list-dedup.py)...
+[Trying](https://github.com/matejcik/advent/blob/main/blog/content/trillion/trillion-list-dedup.py)...
 ```
 === digit 11 ===
 deduplication: 46.264 s
