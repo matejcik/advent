@@ -289,6 +289,7 @@ DESTINATIONS = {
 }
 
 INPUT2 = State.from_seq("ADDBDCBCABADBACC")
+FINAL_STATE = State.from_seq("AAAABBBBCCCCDDDD")
 
 with Timer() as t:
     print(f"Part 2: {search(INPUT2)}")
