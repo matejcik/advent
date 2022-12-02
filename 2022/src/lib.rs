@@ -1,10 +1,9 @@
-use std::io::Seek;
 use bstr::io::BufReadExt;
+use std::io::{BufRead, Seek};
 
 pub mod day01;
 
-
-pub type Solver = fn(&mut dyn Resettable) -> (String, String);
+pub type Solver = fn(&mut dyn BufRead) -> String;
 
 pub trait Resettable: BufReadExt + Seek {
     fn reset(&mut self) {

@@ -1,7 +1,9 @@
-use crate::parse_num;
-use crate::Resettable;
+use std::io::BufRead;
 
-fn part1_find_max_joules(input: &mut impl Resettable) -> String {
+use crate::{parse_num, Solver};
+use bstr::io::BufReadExt;
+
+fn part1_find_max_joules(mut input: &mut dyn BufRead) -> String {
     let mut max_joules = 0;
     let mut current_joules = 0;
     input
@@ -45,7 +47,7 @@ impl Top3 {
     }
 }
 
-fn part2_find_top_3(input: &mut impl Resettable) -> String {
+fn part2_find_top_3(mut input: &mut dyn BufRead) -> String {
     let mut top3 = Top3::new();
 
     let mut current_elf = 0;
@@ -69,9 +71,4 @@ fn part2_find_top_3(input: &mut impl Resettable) -> String {
     top3.total().to_string()
 }
 
-pub fn solve(input: &mut impl Resettable) -> (String, String) {
-    let part1 = part1_find_max_joules(input);
-    input.reset();
-    let part2 = part2_find_top_3(input);
-    (part1, part2)
-}
+pub const SOLVERS: &[Solver] = &[part1_find_max_joules, part2_find_top_3];
