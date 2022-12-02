@@ -2,6 +2,7 @@ use bstr::io::BufReadExt;
 use std::io::{BufRead, Seek};
 
 pub mod day01;
+pub mod day02;
 
 pub type Solver = fn(&mut dyn BufRead) -> String;
 

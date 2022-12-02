@@ -1,7 +1,7 @@
+use bstr::io::BufReadExt;
 use std::io::BufRead;
 
 use crate::{parse_num, Solver};
-use bstr::io::BufReadExt;
 
 fn part1_find_max_joules(mut input: &mut dyn BufRead) -> String {
     let mut max_joules = 0;

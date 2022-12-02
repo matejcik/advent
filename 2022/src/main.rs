@@ -4,7 +4,7 @@ use std::{fs::File, io::BufReader};
 
 use clap::Parser;
 
-use advent2022::{day01, Resettable, Solver};
+use advent2022::{day01, Resettable, Solver, day02};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -56,11 +56,12 @@ fn main() {
     println!("Total runtime: {} us", total_runtime);
 }
 
-const DAY_MAX: u8 = 1;
+const DAY_MAX: u8 = 2;
 
 fn get_day(day: u8) -> &'static [Solver] {
     match day {
         1 => day01::SOLVERS,
+        2 => day02::SOLVERS,
         _ => panic!("Day {} not implemented", day),
     }
 }
