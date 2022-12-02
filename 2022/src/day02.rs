@@ -57,9 +57,9 @@ impl Move {
         if self == other {
             MatchResult::Draw
         } else if self.better() == other {
-            MatchResult::Win
-        } else {
             MatchResult::Lose
+        } else {
+            MatchResult::Win
         }
     }
 
