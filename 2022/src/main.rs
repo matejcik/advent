@@ -1,10 +1,10 @@
-use std::io::BufRead;
+use std::io::{BufRead, Seek};
 use std::time::Instant;
 use std::{fs::File, io::BufReader};
 
 use clap::Parser;
 
-use advent2022::{day01, Resettable, Solver, day02};
+use advent2022::{day01, day02, day03, Solver};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -48,7 +48,7 @@ fn main() {
         let solvers = get_day(day);
         for (i, func) in solvers.iter().enumerate() {
             total_runtime += run_solver(*func, format!("Day {} part {}", day, i + 1), &mut input);
-            input.reset();
+            input.seek(std::io::SeekFrom::Start(0)).unwrap();
         }
     }
 
@@ -62,6 +62,7 @@ fn get_day(day: u8) -> &'static [Solver] {
     match day {
         1 => day01::SOLVERS,
         2 => day02::SOLVERS,
+        3 => day03::SOLVERS,
         _ => panic!("Day {} not implemented", day),
     }
 }

@@ -1,18 +1,10 @@
-use bstr::io::BufReadExt;
-use std::io::{BufRead, Seek};
+use std::io::BufRead;
 
 pub mod day01;
 pub mod day02;
+pub mod day03;
 
 pub type Solver = fn(&mut dyn BufRead) -> u64;
-
-pub trait Resettable: BufReadExt + Seek {
-    fn reset(&mut self) {
-        self.seek(std::io::SeekFrom::Start(0)).unwrap();
-    }
-}
-
-impl<T: BufReadExt + Seek> Resettable for T {}
 
 pub fn parse_num(slice: &[u8]) -> u64 {
     let mut num = 0;
