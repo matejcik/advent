@@ -68,7 +68,7 @@ impl Move {
     }
 }
 
-fn part1_play_strategy(mut input: &mut dyn BufRead) -> String {
+fn part1_play_strategy(mut input: &mut dyn BufRead) -> u64 {
     let mut total_score = 0;
     input
         .for_byte_line(|line| {
@@ -79,10 +79,10 @@ fn part1_play_strategy(mut input: &mut dyn BufRead) -> String {
         })
         .unwrap();
 
-    total_score.to_string()
+    total_score
 }
 
-fn part2_play_to_result(mut input: &mut dyn BufRead) -> String {
+fn part2_play_to_result(mut input: &mut dyn BufRead) -> u64 {
     let mut total_score = 0;
     input
         .for_byte_line(|line| {
@@ -94,7 +94,7 @@ fn part2_play_to_result(mut input: &mut dyn BufRead) -> String {
         })
         .unwrap();
 
-    total_score.to_string()
+    total_score
 }
 
 pub const SOLVERS: &[Solver] = &[part1_play_strategy, part2_play_to_result];

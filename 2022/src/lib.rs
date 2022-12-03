@@ -4,7 +4,7 @@ use std::io::{BufRead, Seek};
 pub mod day01;
 pub mod day02;
 
-pub type Solver = fn(&mut dyn BufRead) -> String;
+pub type Solver = fn(&mut dyn BufRead) -> u64;
 
 pub trait Resettable: BufReadExt + Seek {
     fn reset(&mut self) {
