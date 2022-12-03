@@ -56,7 +56,7 @@ fn main() {
     println!("Total runtime: {} us", total_runtime);
 }
 
-const DAY_MAX: u8 = 2;
+const DAY_MAX: u8 = 3;
 
 fn get_day(day: u8) -> &'static [Solver] {
     match day {
