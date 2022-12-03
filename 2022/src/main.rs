@@ -5,6 +5,7 @@ use std::{fs::File, io::BufReader};
 use clap::Parser;
 
 use advent2022::{day01, day02, day03, Solver};
+use prettytable::row;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -15,13 +16,11 @@ struct Args {
     days: Vec<u8>,
 }
 
-fn run_solver(solver: Solver, heading: String, input: &mut dyn BufRead) -> u128 {
+fn run_solver(solver: Solver, input: &mut dyn BufRead) -> (u64, u128) {
     let start = Instant::now();
     let result = solver(input);
     let elapsed = start.elapsed().as_micros();
-    println!("{}: {}", heading, result);
-    println!("Elapsed: {} us", elapsed);
-    elapsed
+    (result, elapsed)
 }
 
 fn main() {
@@ -35,6 +34,9 @@ fn main() {
         args.days
     };
 
+    let mut table = prettytable::Table::new();
+    table.add_row(row!["Day", "Part 1", "elapsed", "Part 2", "elapsed"]);
+
     for day in days {
         let suffix = if let Some(str) = &args.suffix {
             format!("-{}", str)
@@ -45,13 +47,19 @@ fn main() {
         let mut input = BufReader::new(File::open(input_filename).unwrap());
         input.fill_buf().expect("failed to fill buffer");
 
+        let mut row_vec = vec![day.to_string()];
         let solvers = get_day(day);
-        for (i, func) in solvers.iter().enumerate() {
-            total_runtime += run_solver(*func, format!("Day {} part {}", day, i + 1), &mut input);
+        for func in solvers {
+            let (result, elapsed) = run_solver(*func, &mut input);
+            row_vec.push(result.to_string());
+            row_vec.push(format!("{} us", elapsed));
+            total_runtime += elapsed;
             input.seek(std::io::SeekFrom::Start(0)).unwrap();
         }
+        table.add_row(row_vec.into());
     }
 
+    table.printstd();
     println!();
     println!("Total runtime: {} us", total_runtime);
 }
