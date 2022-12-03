@@ -7,20 +7,36 @@ use clap::Parser;
 use advent2022::{day01, day02, day03, Solver};
 use prettytable::row;
 
+const BENCH_TRIES_DEFAULT: u128 = 500;
+
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
     suffix: Option<String>,
 
+    #[arg(short, long)]
+    tries: Option<u128>,
+
     #[arg()]
     days: Vec<u8>,
 }
 
-fn run_solver(solver: Solver, input: &mut dyn BufRead) -> (u64, u128) {
+fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) -> (u64, u128) {
     let start = Instant::now();
-    let result = solver(input);
-    let elapsed = start.elapsed().as_micros();
-    (result, elapsed)
+    let mut result = None;
+    for _ in 0..tries {
+        input.seek(std::io::SeekFrom::Start(0)).unwrap();
+        match result {
+            Some(result) => {
+                if result != solver(input) {
+                    panic!("Solver returned different results");
+                }
+            }
+            None => result = Some(solver(input)),
+        }
+    }
+    let elapsed = start.elapsed().as_micros() / tries;
+    (result.unwrap(), elapsed)
 }
 
 fn main() {
@@ -28,10 +44,20 @@ fn main() {
 
     let mut total_runtime = 0;
 
-    let days = if args.days.is_empty() {
+    let all_days = args.days.is_empty();
+
+    let days = if all_days {
         (1..=DAY_MAX).collect()
     } else {
         args.days
+    };
+
+    let tries = if let Some(tries) = args.tries {
+        tries
+    } else if all_days {
+        BENCH_TRIES_DEFAULT
+    } else {
+        1
     };
 
     let mut table = prettytable::Table::new();
@@ -50,11 +76,10 @@ fn main() {
         let mut row_vec = vec![day.to_string()];
         let solvers = get_day(day);
         for func in solvers {
-            let (result, elapsed) = run_solver(*func, &mut input);
+            let (result, elapsed) = run_solver(*func, &mut input, tries);
             row_vec.push(result.to_string());
             row_vec.push(format!("{} us", elapsed));
             total_runtime += elapsed;
-            input.seek(std::io::SeekFrom::Start(0)).unwrap();
         }
         table.add_row(row_vec.into());
     }
