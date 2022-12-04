@@ -4,7 +4,7 @@ use std::{fs::File, io::BufReader};
 
 use clap::Parser;
 
-use advent2022::{day01, day02, day03, Solver};
+use advent2022::{day01, day02, day03, Solver, day04};
 use prettytable::row;
 
 const BENCH_TRIES_DEFAULT: u128 = 500;
@@ -89,13 +89,14 @@ fn main() {
     println!("Total runtime: {} us", total_runtime);
 }
 
-const DAY_MAX: u8 = 3;
+const DAY_MAX: u8 = 4;
 
 fn get_day(day: u8) -> &'static [Solver] {
     match day {
         1 => day01::SOLVERS,
         2 => day02::SOLVERS,
         3 => day03::SOLVERS,
+        4 => day04::SOLVERS,
         _ => panic!("Day {} not implemented", day),
     }
 }

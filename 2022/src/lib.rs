@@ -1,8 +1,9 @@
-use std::io::BufRead;
+use std::{io::BufRead, iter};
 
 pub mod day01;
 pub mod day02;
 pub mod day03;
+pub mod day04;
 
 pub type Solver = fn(&mut dyn BufRead) -> u64;
 
@@ -12,4 +13,20 @@ pub fn parse_num(slice: &[u8]) -> u64 {
         num = num * 10 + (*c as u64 - '0' as u64);
     }
     num
+}
+
+pub fn parse_nums(slice: &[u8], result: &mut [u64]) {
+    let mut it = slice.iter().copied();
+    for res in result.iter_mut() {
+        let mut num = 0;
+        loop {
+            match it.next() {
+                Some(c) if (b'0'..=b'9').contains(&c) => num = num * 10 + c as u64 - '0' as u64,
+                _ => {
+                    *res = num;
+                    break;
+                }
+            }
+        }
+    }
 }
