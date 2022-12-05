@@ -1,4 +1,6 @@
-use std::{io::BufRead, iter};
+#![feature(portable_simd)]
+
+use std::io::BufRead;
 
 pub mod day01;
 pub mod day02;
