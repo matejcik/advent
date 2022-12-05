@@ -4,7 +4,7 @@ use std::{fs::File, io::BufReader};
 
 use clap::Parser;
 
-use advent2022::{day01, day02, day03, Solver, day04};
+use advent2022::{day01, day02, day03, day04, day05, Solver};
 use prettytable::row;
 
 const BENCH_TRIES_DEFAULT: u128 = 500;
@@ -21,14 +21,14 @@ struct Args {
     days: Vec<u8>,
 }
 
-fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) -> (u64, u128) {
+fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) -> (String, u128) {
     let start = Instant::now();
     let mut result = None;
     for _ in 0..tries {
         input.seek(std::io::SeekFrom::Start(0)).unwrap();
-        match result {
+        match result.as_ref() {
             Some(result) => {
-                if result != solver(input) {
+                if *result != solver(input) {
                     panic!("Solver returned different results");
                 }
             }
@@ -89,7 +89,7 @@ fn main() {
     println!("Total runtime: {} us", total_runtime);
 }
 
-const DAY_MAX: u8 = 4;
+const DAY_MAX: u8 = 5;
 
 fn get_day(day: u8) -> &'static [Solver] {
     match day {
@@ -97,6 +97,7 @@ fn get_day(day: u8) -> &'static [Solver] {
         2 => day02::SOLVERS,
         3 => day03::SOLVERS,
         4 => day04::SOLVERS,
+        5 => day05::SOLVERS,
         _ => panic!("Day {} not implemented", day),
     }
 }
