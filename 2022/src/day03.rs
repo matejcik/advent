@@ -30,7 +30,7 @@ fn bit_to_item(bitset: u64) -> u8 {
     item + 64
 }
 
-fn part1_item_in_both_priorities(mut input: &mut dyn BufRead) -> u64 {
+fn part1_item_in_both_priorities(mut input: &mut dyn BufRead) -> String {
     let mut total = 0;
     input
         .for_byte_line(|line| {
@@ -44,10 +44,10 @@ fn part1_item_in_both_priorities(mut input: &mut dyn BufRead) -> u64 {
             Ok(true)
         })
         .unwrap();
-    total
+    total.to_string()
 }
 
-fn part2_item_in_groups_of_3(input: &mut dyn BufRead) -> u64 {
+fn part2_item_in_groups_of_3(input: &mut dyn BufRead) -> String {
     let mut total = 0;
     let mut collector = u64::MAX;
     for (i, line) in input.byte_lines().enumerate() {
@@ -59,7 +59,7 @@ fn part2_item_in_groups_of_3(input: &mut dyn BufRead) -> u64 {
             collector = u64::MAX;
         }
     }
-    total
+    total.to_string()
 }
 
 pub const SOLVERS: &[Solver] = &[part1_item_in_both_priorities, part2_item_in_groups_of_3];

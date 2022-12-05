@@ -32,7 +32,7 @@ impl Interval {
     }
 }
 
-fn part1_count_total_overlaps(mut input: &mut dyn BufRead) -> u64 {
+fn part1_count_total_overlaps(mut input: &mut dyn BufRead) -> String {
     let mut total = 0;
     let mut numbers = [0; 4];
     input
@@ -44,10 +44,10 @@ fn part1_count_total_overlaps(mut input: &mut dyn BufRead) -> u64 {
             Ok(true)
         })
         .unwrap();
-    total
+    total.to_string()
 }
 
-fn part2_count_partial_overlaps(mut input: &mut dyn BufRead) -> u64 {
+fn part2_count_partial_overlaps(mut input: &mut dyn BufRead) -> String {
     let mut total = 0;
     let mut numbers = [0; 4];
     input
@@ -59,7 +59,7 @@ fn part2_count_partial_overlaps(mut input: &mut dyn BufRead) -> u64 {
             Ok(true)
         })
         .unwrap();
-    total
+    total.to_string()
 }
 
 pub const SOLVERS: &[Solver] = &[part1_count_total_overlaps, part2_count_partial_overlaps];

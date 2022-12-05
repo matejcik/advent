@@ -3,7 +3,7 @@ use std::io::BufRead;
 
 use crate::{parse_num, Solver};
 
-fn part1_find_max_joules(mut input: &mut dyn BufRead) -> u64 {
+fn part1_find_max_joules(mut input: &mut dyn BufRead) -> String {
     let mut max_joules = 0;
     let mut current_joules = 0;
     input
@@ -21,7 +21,7 @@ fn part1_find_max_joules(mut input: &mut dyn BufRead) -> u64 {
             Ok(true)
         })
         .unwrap();
-    max_joules.max(current_joules)
+    max_joules.max(current_joules).to_string()
 }
 
 struct Top3([u64; 3]);
@@ -45,7 +45,7 @@ impl Top3 {
     }
 }
 
-fn part2_find_top_3(mut input: &mut dyn BufRead) -> u64 {
+fn part2_find_top_3(mut input: &mut dyn BufRead) -> String {
     let mut top3 = Top3::new();
 
     let mut current_elf = 0;
@@ -66,7 +66,7 @@ fn part2_find_top_3(mut input: &mut dyn BufRead) -> u64 {
         .unwrap();
     top3.insert(current_elf);
 
-    top3.total()
+    top3.total().to_string()
 }
 
 pub const SOLVERS: &[Solver] = &[part1_find_max_joules, part2_find_top_3];

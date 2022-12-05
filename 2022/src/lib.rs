@@ -7,7 +7,7 @@ pub mod day02;
 pub mod day03;
 pub mod day04;
 
-pub type Solver = fn(&mut dyn BufRead) -> u64;
+pub type Solver = fn(&mut dyn BufRead) -> String;
 
 pub fn parse_num(slice: &[u8]) -> u64 {
     let mut num = 0;

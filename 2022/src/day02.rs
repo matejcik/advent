@@ -158,11 +158,11 @@ fn simdify_entries(input: &[u8; SIMD_WIDTH_BITS / 8]) -> [u32; SIMD_WIDTH] {
     // shift the bits to the right to get a binary entry in the shape of '...0011'
     // mask the bits to get a binary entry '0011'
     let bitshifted = ((base_vec >> RIGHT_SHIFT_SIMD) + base_vec) & BIT_MASK_SIMD;
-    
+
     bitshifted.to_array()
 }
 
-fn part1_play_strategy(input: &mut dyn BufRead) -> u64 {
+fn part1_play_strategy(input: &mut dyn BufRead) -> String {
     let mut total_score = 0;
     let mut entry = [0u8; SIMD_WIDTH_BITS / 8];
     loop {
@@ -175,10 +175,10 @@ fn part1_play_strategy(input: &mut dyn BufRead) -> u64 {
             total_score += OPTIONS_FOR_MOVES[arr[i] as usize] as u64;
         }
     }
-    total_score
+    total_score.to_string()
 }
 
-fn part2_play_to_result(input: &mut dyn BufRead) -> u64 {
+fn part2_play_to_result(input: &mut dyn BufRead) -> String {
     let mut total_score = 0;
     let mut entry = [0u8; SIMD_WIDTH_BITS / 8];
     loop {
@@ -190,7 +190,8 @@ fn part2_play_to_result(input: &mut dyn BufRead) -> u64 {
         for i in 0..(bytes_read / 4) {
             total_score += OPTIONS_FOR_RESULTS[arr[i] as usize] as u64;
         }
-    }    total_score
+    }
+    total_score.to_string()
 }
 
 pub const SOLVERS: &[Solver] = &[part1_play_strategy, part2_play_to_result];
