@@ -21,7 +21,7 @@ struct Args {
     days: Vec<u8>,
 }
 
-fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) -> (String, u128) {
+fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) -> (String, f64) {
     let start = Instant::now();
     let mut result = None;
     for _ in 0..tries {
@@ -35,14 +35,14 @@ fn run_solver(solver: Solver, input: &mut (impl BufRead + Seek), tries: u128) ->
             None => result = Some(solver(input)),
         }
     }
-    let elapsed = start.elapsed().as_micros() / tries;
+    let elapsed = start.elapsed().as_nanos() as f64 / tries as f64;
     (result.unwrap(), elapsed)
 }
 
 fn main() {
     let args = Args::parse();
 
-    let mut total_runtime = 0;
+    let mut total_runtime = 0f64;
 
     let all_days = args.days.is_empty();
 
@@ -78,7 +78,7 @@ fn main() {
         for func in solvers {
             let (result, elapsed) = run_solver(*func, &mut input, tries);
             row_vec.push(result.to_string());
-            row_vec.push(format!("{} us", elapsed));
+            row_vec.push(format!("{:.02} us", elapsed / 1000f64));
             total_runtime += elapsed;
         }
         table.add_row(row_vec.into());
@@ -86,7 +86,7 @@ fn main() {
 
     table.printstd();
     println!();
-    println!("Total runtime: {} us", total_runtime);
+    println!("Total runtime: {:.02} us", total_runtime / 1000f64);
 }
 
 const DAY_MAX: u8 = 5;

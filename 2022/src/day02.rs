@@ -162,7 +162,8 @@ fn simdify_entries(input: &[u8; SIMD_WIDTH_BITS / 8]) -> [u32; SIMD_WIDTH] {
     bitshifted.to_array()
 }
 
-fn part1_play_strategy(input: &mut dyn BufRead) -> String {
+#[target_feature(enable = "avx2")]
+unsafe fn part1_play_strategy_avx(input: &mut dyn BufRead) -> String {
     let mut total_score = 0;
     let mut entry = [0u8; SIMD_WIDTH_BITS / 8];
     loop {
@@ -178,7 +179,13 @@ fn part1_play_strategy(input: &mut dyn BufRead) -> String {
     total_score.to_string()
 }
 
-fn part2_play_to_result(input: &mut dyn BufRead) -> String {
+fn part1_play_strategy(input: &mut dyn BufRead) -> String {
+    // SAFETY: my PC has avx2
+    unsafe { part1_play_strategy_avx(input) }
+}
+
+#[target_feature(enable = "avx2")]
+unsafe fn part2_play_to_result_avx(input: &mut dyn BufRead) -> String {
     let mut total_score = 0;
     let mut entry = [0u8; SIMD_WIDTH_BITS / 8];
     loop {
@@ -192,6 +199,11 @@ fn part2_play_to_result(input: &mut dyn BufRead) -> String {
         }
     }
     total_score.to_string()
+}
+
+fn part2_play_to_result(input: &mut dyn BufRead) -> String {
+    // SAFETY: my PC has avx2
+    unsafe { part2_play_to_result_avx(input) }
 }
 
 pub const SOLVERS: &[Solver] = &[part1_play_strategy, part2_play_to_result];
