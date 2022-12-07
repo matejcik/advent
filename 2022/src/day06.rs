@@ -15,6 +15,17 @@ impl AsciiLowerBitSet {
         self.0 |= 1 << (c - b'a');
     }
 
+    pub fn contains(&self, c: u8) -> bool {
+        //assert!(b'a' <= c && c <= b'z');
+        self.0 & (1 << (c - b'a')) != 0
+    }
+
+    pub fn remove(&mut self, c: u8) {
+        //assert!(b'a' <= c && c <= b'z');
+        self.0 &= !(1 << (c - b'a'));
+    }
+
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.0.count_ones() as usize
     }
@@ -23,13 +34,20 @@ impl AsciiLowerBitSet {
 fn find_distinct_prefix_n<const N: usize>(input: &mut dyn BufRead) -> String {
     let mut data = vec![];
     input.read_to_end(&mut data).unwrap();
-    for i in N..data.len() {
-        let mut set = AsciiLowerBitSet::new();
-        for j in 1..=N {
-            set.add(data[i - j]);
+    let mut window_start = 0;
+    let mut set = AsciiLowerBitSet::new();
+    for i in 0..data.len() {
+        if !set.contains(data[i]) {
+            set.add(data[i])
+        } else {
+            while data[window_start] != data[i] {
+                set.remove(data[window_start]);
+                window_start += 1;
+            }
+            window_start += 1;
         }
-        if set.len() == N {
-            return i.to_string();
+        if i - window_start + 1 == N {
+            return i.to_string()
         }
     }
     unreachable!()
