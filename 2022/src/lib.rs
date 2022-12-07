@@ -8,13 +8,17 @@ pub mod day03;
 pub mod day04;
 pub mod day05;
 pub mod day06;
+pub mod day07;
 
 pub type Solver = fn(&mut dyn BufRead) -> String;
 
 pub fn parse_num(slice: &[u8]) -> u64 {
     let mut num = 0;
     for c in slice {
-        num = num * 10 + (*c as u64 - '0' as u64);
+        match c {
+            b'0'..=b'9' => num = num * 10 + (*c as u64 - '0' as u64),
+            _ => break,
+        }
     }
     num
 }
