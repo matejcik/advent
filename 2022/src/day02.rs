@@ -1,4 +1,3 @@
-use bstr::io::BufReadExt;
 use std::{io::BufRead, simd::Simd};
 
 use crate::Solver;
@@ -18,15 +17,6 @@ enum MatchResult {
 }
 
 impl MatchResult {
-    pub const fn from_id(id: u8) -> Self {
-        match id {
-            2 => Self::Win,
-            1 => Self::Draw,
-            0 => Self::Lose,
-            _ => unreachable!(),
-        }
-    }
-
     pub const fn response_for(self, move_: Move) -> Move {
         match self {
             Self::Win => move_.better(),
