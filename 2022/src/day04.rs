@@ -1,9 +1,8 @@
-use core::num;
 use std::io::BufRead;
 
 use bstr::io::BufReadExt;
 
-use crate::{parse_num, parse_nums, Solver};
+use crate::{parse_nums, Solver};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 struct Interval(u64, u64);
@@ -13,18 +12,8 @@ impl Interval {
         Self(min, max)
     }
 
-    pub fn from_str(str: &[u8]) -> Self {
-        let [min, max]: [u64; 2] = str
-            .split(|c| *c == b'-')
-            .map(parse_num)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        Self(min, max)
-    }
-
-    pub fn contains(&self, other: Interval) -> bool {
-        self.0 <= other.0 && self.1 >= other.1
+    pub fn contains_or_contained(&self, other: Interval) -> bool {
+        (self.0 <= other.0 && self.1 >= other.1) || (self.0 >= other.0 && self.1 <= other.1)
     }
 
     pub fn overlaps(&self, other: Interval) -> bool {
@@ -40,7 +29,7 @@ fn part1_count_total_overlaps(mut input: &mut dyn BufRead) -> String {
             parse_nums(line, &mut numbers);
             let l = Interval::new(numbers[0], numbers[1]);
             let r = Interval::new(numbers[2], numbers[3]);
-            total += (l.contains(r) || r.contains(l)) as u64;
+            total += l.contains_or_contained(r) as u64;
             Ok(true)
         })
         .unwrap();
@@ -55,7 +44,7 @@ fn part2_count_partial_overlaps(mut input: &mut dyn BufRead) -> String {
             parse_nums(line, &mut numbers);
             let l = Interval::new(numbers[0], numbers[1]);
             let r = Interval::new(numbers[2], numbers[3]);
-            total += (l.overlaps(r) || r.overlaps(l)) as u64;
+            total += l.overlaps(r) as u64;
             Ok(true)
         })
         .unwrap();
