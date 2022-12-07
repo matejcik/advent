@@ -11,26 +11,37 @@ const DIRSIZE_LIMIT: u64 = 100_000;
 const DISK_SPACE: u64 = 70_000_000;
 const SPACE_REQUIRED: u64 = 30_000_000;
 
-fn dirscan(input: &mut dyn BufRead) -> Vec<u64> {
+fn dirscan(mut input: &mut dyn BufRead) -> Vec<u64> {
     let mut dirsizes = Vec::with_capacity(MAX_DIRS);
     let mut stack = Vec::with_capacity(100);
     let mut top = 0;
-    for line in input.byte_lines().flatten() {
-        match &line[..3] {
-            // $ cd .. -> un-nest
-            b"$ c" if &line == b"$ cd .." => {
-                dirsizes.push(top);
-                top += stack.pop().unwrap();
+    input
+        .for_byte_line(|line| {
+            match line[0] {
+                b'$' => {
+                    if line.len() >= 6 {
+                        // '$ cd ?'
+                        match line[5] {
+                            b'.' => {
+                                // '$ cd ..'
+                                dirsizes.push(top);
+                                top += stack.pop().unwrap();
+                            }
+                            _ => {
+                                // '$ cd [dirname]'
+                                stack.push(top);
+                                top = 0;
+                            }
+                        }
+                    }
+                    // '$ ls' is ignored
+                }
+                b'd' => {} // dir [something] -> ignore
+                _ => top += parse_num(&line),
             }
-            b"$ c" => {
-                stack.push(top);
-                top = 0;
-            }
-            b"$ l" => {} // $ ls -> ignore
-            b"dir" => {} // ls entry: dir [something] -> ignore
-            _ => top += parse_num(&line),
-        }
-    }
+            Ok(true)
+        })
+        .unwrap();
     while let Some(stack_top) = stack.pop() {
         dirsizes.push(top);
         top += stack_top;
