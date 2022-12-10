@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     io::BufRead,
     ops::{Index, IndexMut},
 };
@@ -41,6 +42,13 @@ impl<T: Copy> Trees<T> {
             entries: vec![initial; (width + 1) * height],
         }
     }
+
+    pub fn iter_with<'a>(
+        &'a self,
+        stepper: impl Iterator<Item = usize> + 'a,
+    ) -> impl Iterator<Item = T> + 'a {
+        stepper.map(move |idx| self.entries[idx])
+    }
 }
 
 impl<T> Trees<T> {
@@ -62,6 +70,17 @@ impl<T> Trees<T> {
         let line_width = self.line_width;
         let total_len = self.entries.len();
         (0..self.width()).map(move |x| Stepper::new_vert(x, line_width, total_len))
+    }
+}
+
+impl<T: Display> Trees<T> {
+    pub fn print(&self) {
+        for row in self.rows_steppers() {
+            for idx in row.iter() {
+                print!("{:3}", self.entries[idx]);
+            }
+            println!();
+        }
     }
 }
 
@@ -131,14 +150,15 @@ fn part1_count_visible_trees(input: &mut dyn BufRead) -> String {
     let trees = Trees::load(input);
     let mut visibility = Trees::new(trees.width(), trees.height(), 0u8);
 
-    for row in trees.rows_steppers() {
-        let maybe_visible_from_right = line_visibility(&trees, &mut visibility, row.iter(), row.len());
-        line_visibility(&trees, &mut visibility, row.iter().rev(), maybe_visible_from_right);
-    }
-
-    for col in trees.col_steppers() {
-        let maybe_visible_from_right = line_visibility(&trees, &mut visibility, col.iter(), col.len());
-        line_visibility(&trees, &mut visibility, col.iter().rev(), maybe_visible_from_right);
+    for line in trees.rows_steppers().chain(trees.col_steppers()) {
+        let maybe_visible_from_right =
+            line_visibility(&trees, &mut visibility, line.iter(), line.len());
+        line_visibility(
+            &trees,
+            &mut visibility,
+            line.iter().rev(),
+            maybe_visible_from_right,
+        );
     }
 
     visibility
@@ -149,56 +169,40 @@ fn part1_count_visible_trees(input: &mut dyn BufRead) -> String {
         .to_string()
 }
 
-fn part2_find_best_view(input: &mut dyn BufRead) -> String {
-    /*let trees = Trees::load(input);
+fn part2_brute_force(input: &mut dyn BufRead) -> String {
+    let trees = Trees::load(input);
     let mut views = Trees::new(trees.width(), trees.height(), 0u32);
 
-    let mut line = vec![0u32; trees.width()];
     for y in 1..trees.height() - 1 {
-        let line_iter = LineIter::new(Line::Row(y), 0, trees.width());
-        let tallest = line_iter.map(|coords| trees[coords]).max().unwrap();
-        let mut prevx = 0;
-        for x in 0..trees.width() {
-            let height = trees[(x, y)];
-            if height == tallest {
-                line[x] = (x - prevx) as u32;
-                prevx = x - 1;
-            }
-        }
-        prevx = trees.width() - 1;
-        for x in (0..trees.width()).rev() {
-            let height = trees[(x, y)];
-            if height == tallest {
-                views[(x, y)] = line[x] * (prevx - x) as u32;
-                prevx = x + 1;
-            }
-        }
-    }
-
-    let mut column = vec![0u32; trees.height()];
-    for x in 1..trees.width() - 1 {
-        let line_iter = LineIter::new(Line::Col(x), 0, trees.height());
-        let tallest = line_iter.map(|coords| trees[coords]).max().unwrap();
-        let mut prevy = 0;
-        for y in 0..trees.height() {
-            let height = trees[(x, y)];
-            if height == tallest {
-                column[y] = (y - prevy) as u32;
-                prevy = y - 1;
-            }
-        }
-        prevy = trees.height() - 1;
-        for y in (0..trees.height()).rev() {
-            let height = trees[(x, y)];
-            if height == tallest {
-                views[(x, y)] *= column[y] * (prevy - y) as u32;
-                prevy = y + 1;
-            }
+        for x in 1..trees.width() - 1 {
+            let mut view_count = 1;
+            let xx = (0..x)
+                .rev()
+                .skip_while(|xx| trees[(*xx, y)] < trees[(x, y)])
+                .next()
+                .unwrap_or(0);
+            view_count *= x - xx;
+            let xx = (x + 1..trees.width())
+                .skip_while(|xx| trees[(*xx, y)] < trees[(x, y)])
+                .next()
+                .unwrap_or(trees.width() - 1);
+            view_count *= xx - x;
+            let yy = (0..y)
+                .rev()
+                .skip_while(|yy| trees[(x, *yy)] < trees[(x, y)])
+                .next()
+                .unwrap_or(0);
+            view_count *= y - yy;
+            let yy = (y + 1..trees.height())
+                .skip_while(|yy| trees[(x, *yy)] < trees[(x, y)])
+                .next()
+                .unwrap_or(trees.height() - 1);
+            view_count *= yy - y;
+            views[(x, y)] = view_count as u32;
         }
     }
 
-    views.entries.iter().max().unwrap().to_string()*/
-    "".to_string()
+    views.entries.iter().max().unwrap().to_string()
 }
 
-pub const SOLVERS: &[Solver] = &[part1_count_visible_trees, part2_find_best_view];
+pub const SOLVERS: &[Solver] = &[part1_count_visible_trees, part2_brute_force];
