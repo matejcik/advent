@@ -1,6 +1,6 @@
 use std::{collections::HashSet, io::BufRead};
 
-use bstr::{io::BufReadExt};
+use bstr::io::BufReadExt;
 
 use crate::{parse_num, Solver};
 
@@ -8,13 +8,16 @@ use crate::{parse_num, Solver};
 struct Knot(i32, i32);
 
 impl Knot {
-    pub fn move_towards(&mut self, other: &Knot) {
+    pub fn move_towards(&mut self, other: &Knot) -> bool {
         // assume that other is at most 2 steps in one direction and at most one in the other direction
         let Knot(x1, y1) = self;
         let Knot(x2, y2) = other;
         if (*x1 - *x2).abs() >= 2 || (*y1 - *y2).abs() >= 2 {
             *x1 += (*x2).cmp(x1) as i32;
             *y1 += (*y2).cmp(y1) as i32;
+            true
+        } else {
+            false
         }
     }
 
@@ -62,7 +65,9 @@ fn part2_long_tail(mut input: &mut dyn BufRead) -> String {
                 knots[0].move_dir(dir);
                 for i in 1..KNOTS {
                     let (head, tail) = knots.split_at_mut(i);
-                    tail[0].move_towards(&head[i - 1]);
+                    if !tail[0].move_towards(&head[i - 1]) {
+                        break;
+                    }
                 }
                 positions.insert(knots[KNOTS - 1]);
             }
