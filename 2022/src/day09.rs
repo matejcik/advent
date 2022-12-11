@@ -5,7 +5,7 @@ use bstr::io::BufReadExt;
 use crate::{parse_num, Solver};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Knot(i32, i32);
+struct Knot(i16, i16);
 
 impl Knot {
     pub fn move_towards(&mut self, other: &Knot) -> bool {
@@ -13,8 +13,8 @@ impl Knot {
         let Knot(x1, y1) = self;
         let Knot(x2, y2) = other;
         if (*x1 - *x2).abs() >= 2 || (*y1 - *y2).abs() >= 2 {
-            *x1 += (*x2).cmp(x1) as i32;
-            *y1 += (*y2).cmp(y1) as i32;
+            *x1 += (*x2).cmp(x1) as i16;
+            *y1 += (*y2).cmp(y1) as i16;
             true
         } else {
             false
@@ -34,7 +34,7 @@ impl Knot {
 }
 
 fn part1_tail_positions(mut input: &mut dyn BufRead) -> String {
-    let mut positions = HashSet::new();
+    let mut positions = HashSet::with_capacity(8000);
     let mut head = Knot(0, 0);
     let mut tail = Knot(0, 0);
     input
@@ -55,7 +55,7 @@ fn part1_tail_positions(mut input: &mut dyn BufRead) -> String {
 
 fn part2_long_tail(mut input: &mut dyn BufRead) -> String {
     const KNOTS: usize = 10;
-    let mut positions = HashSet::new();
+    let mut positions = HashSet::with_capacity(8000);
     let mut knots = [Knot(0, 0); KNOTS];
     input
         .for_byte_line(|line| {
