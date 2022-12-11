@@ -12,6 +12,7 @@ pub mod day07;
 pub mod day08;
 pub mod day09;
 pub mod day10;
+pub mod day11;
 
 pub type Solver = fn(&mut dyn BufRead) -> String;
 
@@ -26,9 +27,10 @@ pub fn parse_num(slice: &[u8]) -> u64 {
     num
 }
 
-pub fn parse_nums(slice: &[u8], result: &mut [u64]) {
+pub fn parse_nums(slice: &[u8], result: &mut [u64]) -> usize {
     let mut it = slice.iter().copied();
-    for res in result.iter_mut() {
+    let mut nums = 0;
+    'outer: for res in result.iter_mut() {
         let mut num = 0;
         let mut have_num = false;
         loop {
@@ -36,13 +38,20 @@ pub fn parse_nums(slice: &[u8], result: &mut [u64]) {
                 Some(c) if (b'0'..=b'9').contains(&c) => {
                     have_num = true;
                     num = num * 10 + c as u64 - '0' as u64;
+                    continue;
                 }
                 Some(_) if !have_num => continue,
-                _ => {
+                x => {
                     *res = num;
-                    break;
+                    nums += 1;
+                    if x.is_none() {
+                        break 'outer;
+                    } else {
+                        break;
+                    }
                 }
             }
         }
     }
+    nums
 }
