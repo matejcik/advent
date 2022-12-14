@@ -100,7 +100,7 @@ fn astar(
 ) -> Option<u32> {
     let mut visited = Tiles::new(elevation.width(), elevation.height(), None::<VisitInfo>);
 
-    let score_func = |p: Point, dist: u32| Reverse(p.manhattan_distance(end) + dist as i32);
+    let score_func = |p: Point, dist: u32| Reverse(p.manhattan_distance(end) + dist as i16);
 
     let mut queue = BinaryHeap::with_capacity(MAX_MAP_SIZE);
     queue.push((
@@ -153,10 +153,10 @@ fn part1_shortest_path(input: &mut dyn BufRead) -> String {
     for y in 0..elevation.height() {
         for x in 0..elevation.width() {
             if elevation[(x, y)] == b'S' {
-                start = Point::new(x as i32, y as i32);
+                start = Point::new(x as _, y as _);
                 elevation[start] = b'a';
             } else if elevation[(x, y)] == b'E' {
-                end = Point::new(x as i32, y as i32);
+                end = Point::new(x as _, y as _);
                 elevation[end] = b'z';
             }
         }

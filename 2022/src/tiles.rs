@@ -6,7 +6,7 @@ use std::{
 
 use num_traits::AsPrimitive;
 
-pub type CoordType = i32;
+pub type CoordType = i16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Point {
