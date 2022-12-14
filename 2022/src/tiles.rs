@@ -31,6 +31,16 @@ impl Point {
             .iter()
             .map(move |dir| *dir + *self)
     }
+
+    pub fn quad_distance(&self, other: Self) -> CoordType {
+        let xdist = self.x - other.x;
+        let ydist = self.y - other.y;
+        xdist * xdist + ydist * ydist
+    }
+
+    pub fn manhattan_distance(&self, other: Self) -> CoordType {
+        (self.x - other.x).abs() + (self.y - other.y).abs()
+    }
 }
 
 impl<N> Into<(N, N)> for Point
@@ -85,7 +95,7 @@ impl Tiles<u8> {
     }
 }
 
-impl<T: Copy> Tiles<T> {
+impl<T: Clone> Tiles<T> {
     pub fn new(width: usize, height: usize, initial: T) -> Self {
         Self {
             entry_len: width,
@@ -93,7 +103,9 @@ impl<T: Copy> Tiles<T> {
             entries: vec![initial; (width + 1) * height],
         }
     }
+}
 
+impl<T: Copy> Tiles<T> {
     pub fn iter_with<'a>(
         &'a self,
         stepper: impl Iterator<Item = usize> + 'a,
@@ -109,6 +121,13 @@ impl<T> Tiles<T> {
 
     pub fn height(&self) -> usize {
         self.entries.len() / self.line_width
+    }
+
+    pub fn contains(&self, point: Point) -> bool {
+        point.x >= 0
+            && point.y >= 0
+            && point.x < self.width() as CoordType
+            && point.y < self.height() as CoordType
     }
 
     pub fn rows_steppers(&self) -> impl Iterator<Item = Stepper> {
