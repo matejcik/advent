@@ -81,7 +81,7 @@ fn main() {
         for func in solvers {
             let (result, elapsed) = run_solver(*func, &mut input, tries);
             row_vec.push(result.to_string());
-            row_vec.push(format!("{:.02} us", elapsed / 1000f64));
+            row_vec.push(format!("{:.02} µs", elapsed / 1000f64));
             total_runtime += elapsed;
         }
         table.add_row(row_vec.into());
@@ -89,7 +89,7 @@ fn main() {
 
     table.printstd();
     println!();
-    println!("Total runtime: {:.02} us", total_runtime / 1000f64);
+    println!("Total runtime: {:.02} µs", total_runtime / 1000f64);
 }
 
 const DAY_MAX: u8 = 14;
