@@ -64,6 +64,7 @@ pub struct Shape {
     height_until_floor: usize,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum FallOrSettle {
     Fall,
     Settle,
@@ -78,6 +79,22 @@ impl Shape {
         }
     }
 
+    fn intersects(&self, chamber: &Vec<u8>) -> bool {
+        if self.height_until_floor >= chamber.len() {
+            return false;
+        }
+        for (entry, rocks) in self
+            .shape
+            .iter()
+            .zip(chamber[self.height_until_floor..].iter())
+        {
+            if (*entry << self.shift) & *rocks != 0 {
+                return true;
+            }
+        }
+        false
+    }
+
     fn try_shift(&mut self, shift_by: isize, chamber: &Vec<u8>) -> Result<(), ()> {
         let shift = self.shift as isize + shift_by;
         if shift < 0 || shift > 7 {
@@ -88,40 +105,19 @@ impl Shape {
                 return Err(());
             }
         }
-        if self.height_until_floor < chamber.len() {
-            for (entry, rocks) in self
-                .shape
-                .iter()
-                .zip(chamber[self.height_until_floor..].iter())
-            {
-                if (*entry << shift) & rocks != 0 {
-                    return Err(());
-                }
-            }
+        let new = Self {
+            shift: shift as usize,
+            ..*self
+        };
+        if new.intersects(chamber) {
+            Err(())
+        } else {
+            self.shift = shift as usize;
+            Ok(())
         }
-        self.shift = shift as usize;
-        Ok(())
     }
 
-    fn fall_or_settle(&mut self, chamber: &mut Vec<u8>) -> FallOrSettle {
-        if self.height_until_floor > chamber.len() {
-            // if we're above the chamber, we're falling without checking
-            self.height_until_floor -= 1;
-            return FallOrSettle::Fall;
-        }
-        if self.height_until_floor > 0 {
-            let height = self.height_until_floor - 1;
-            for (entry, rocks) in self.shape.iter().zip(chamber[height..].iter()) {
-                // check if we collide with something in the chamber
-                if *rocks & (*entry << self.shift) != 0 {
-                    break;
-                }
-                // no collision was detected
-                self.height_until_floor = height;
-                return FallOrSettle::Fall;
-            }
-        }
-        // collision was detected. we settle at current location
+    fn settle(&self, chamber: &mut Vec<u8>) {
         for (entry, rocks) in self
             .shape
             .iter()
@@ -139,7 +135,29 @@ impl Shape {
                     .map(|entry| *entry << self.shift),
             );
         }
-        FallOrSettle::Settle
+    }
+
+    fn fall_or_settle(&mut self, chamber: &mut Vec<u8>) -> FallOrSettle {
+        if self.height_until_floor > chamber.len() {
+            // if we're above the chamber, we're falling without checking
+            self.height_until_floor -= 1;
+            return FallOrSettle::Fall;
+        }
+        if self.height_until_floor == 0 {
+            self.settle(chamber);
+            return FallOrSettle::Settle;
+        }
+        let new = Self {
+            height_until_floor: self.height_until_floor - 1,
+            ..*self
+        };
+        if new.intersects(chamber) {
+            self.settle(chamber);
+            FallOrSettle::Settle
+        } else {
+            self.height_until_floor -= 1;
+            FallOrSettle::Fall
+        }
     }
 
     fn print(&self, chamber: &Vec<u8>) {
@@ -177,15 +195,15 @@ fn print_line(rocks: u8, falling: u8) {
 }
 
 fn part1_tower_height(input: &mut dyn BufRead) -> String {
-    const ROCK_LIMIT: usize = 10;
+    const ROCK_LIMIT: usize = 2022;
 
-    let mut chamber = Vec::new();
+    let mut chamber = Vec::with_capacity(5000);
     let mut shape = Shape::new(&SHAPES[0], chamber.len());
     let mut shape_counter = 0;
 
     let mut directions = Vec::with_capacity(15000);
     input.read_until(b'\n', &mut directions).unwrap();
-    directions.pop(); // remove trailing newline
+    assert!(matches!(directions.pop(), Some(b'\n')));
 
     for dir in directions.iter().cycle() {
         match dir {
@@ -214,3 +232,87 @@ fn part1_tower_height(input: &mut dyn BufRead) -> String {
 }
 
 pub const SOLVERS: &[Solver] = &[part1_tower_height];
+
+#[allow(unused)]
+mod tests {
+    use super::*;
+
+    fn plus() -> Shape {
+        Shape {
+            shape: shapes::SHAPE_PLUS.data,
+            shift: shapes::SHAPE_PLUS.shift,
+            height_until_floor: 0,
+        }
+    }
+
+    #[test]
+    fn test_shift() {
+        let chamber = vec![];
+        let mut shape = plus();
+
+        assert!(shape.try_shift(-2, &chamber).is_ok());
+        assert!(shape.try_shift(-1, &chamber).is_err());
+
+        shape = plus();
+
+        assert!(shape.try_shift(2, &chamber).is_ok());
+        assert!(shape.try_shift(1, &chamber).is_err());
+    }
+
+    #[test]
+    fn test_shift_with_chamber() {
+        let chamber = vec![0b0000_0001, 0b0000_0000, 0b0000_0001];
+        let mut shape = plus();
+        assert!(shape.try_shift(-2, &chamber).is_ok());
+
+        let chamber = vec![0b0000_0000, 0b0000_0001, 0b0000_0000];
+        let mut shape = plus();
+        assert!(shape.try_shift(-2, &chamber).is_err());
+
+        let chamber = vec![0b0000_0011, 0b0000_0000, 0b0000_0011];
+        let mut shape = plus();
+        assert!(shape.try_shift(-1, &chamber).is_ok());
+        assert_eq!(shape.shift, 1);
+        assert!(shape.try_shift(-1, &chamber).is_err());
+        assert_eq!(shape.shift, 1);
+
+        let chamber = vec![0b0100_0001, 0b0100_0000, 0b0100_0001];
+        let mut shape = plus();
+        assert!(shape.try_shift(1, &chamber).is_ok());
+        assert!(shape.try_shift(1, &chamber).is_err());
+
+        let chamber = vec![0b0000_0011];
+        let mut shape = plus();
+        assert!(shape.try_shift(-1, &chamber).is_ok());
+        assert!(shape.try_shift(-1, &chamber).is_err());
+
+        let chamber = vec![0b0000_0011, 0b0000_0011];
+        let mut shape = plus();
+        assert!(shape.try_shift(-1, &chamber).is_err());
+    }
+
+    #[test]
+    fn test_fall() {
+        let mut chamber = vec![];
+        let mut shape = plus();
+        shape.shift = 0;
+        assert_eq!(shape.fall_or_settle(&mut chamber), FallOrSettle::Settle);
+        assert_eq!(chamber, shape.shape);
+
+        let mut chamber = vec![];
+        let mut shape = plus();
+        shape.height_until_floor = 1;
+        assert_eq!(shape.fall_or_settle(&mut chamber), FallOrSettle::Fall);
+        assert_eq!(chamber, vec![]);
+        assert_eq!(shape.height_until_floor, 0);
+
+        let mut chamber = vec![0b1111_1111];
+        let mut shape = plus();
+        shape.height_until_floor = 1;
+        assert_eq!(shape.fall_or_settle(&mut chamber), FallOrSettle::Settle);
+        assert_eq!(
+            chamber,
+            vec![0b1111_1111, 0b0000_1000, 0b0001_1100, 0b0000_1000]
+        );
+    }
+}
