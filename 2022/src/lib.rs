@@ -2,6 +2,7 @@
 
 use std::io::BufRead;
 
+pub mod bitset;
 pub mod tiles;
 
 pub mod day01;
