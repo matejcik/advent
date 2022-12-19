@@ -1,10 +1,11 @@
 use std::{
     collections::HashMap,
     io::BufRead,
-    ops::{Add, Sub},
+    ops::{Add, Deref, Sub},
 };
 
 use bstr::io::BufReadExt;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::{parse_nums, Solver};
 
@@ -54,7 +55,7 @@ impl Resources {
         }
     }
 
-    pub const fn can_buy(&self, other: Self) -> bool {
+    pub const fn can_buy(&self, other: &Self) -> bool {
         self.ore >= other.ore
             && self.clay >= other.clay
             && self.obsidian >= other.obsidian
@@ -98,9 +99,9 @@ struct Blueprint {
 }
 
 impl Blueprint {
-    fn load(line: &[u8]) -> Self {
+    fn load(line: impl Deref<Target = [u8]>) -> Self {
         let mut numbers = [0u64; 1 + 1 + 1 + 2 + 2];
-        assert_eq!(parse_nums(line, &mut numbers), numbers.len());
+        assert_eq!(parse_nums(&line, &mut numbers), numbers.len());
         Self {
             id: numbers[0] as u32,
             ore_cost: Resources::new().add_ore(numbers[1] as i32),
@@ -172,63 +173,100 @@ impl SimState {
     }
 }
 
-const TIME_LIMIT: u32 = 24;
+const TRIANGULAR_NUMBERS: [u32; 35] = [
+    0, 1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78, 91, 105, 120, 136, 153, 171, 190, 210, 231,
+    253, 276, 300, 325, 351, 378, 406, 435, 465, 496, 528, 561, 595,
+];
 
-impl Blueprint {
-    pub fn simulate_step(&self, cache: &mut HashMap<SimState, u32>, state: SimState) -> u32 {
-        if state.time >= TIME_LIMIT {
-            return state.cash.geodes;
-        }
-        if let Some(&result) = cache.get(&state) {
+struct Simulation {
+    time_limit: u32,
+    best_result: u32,
+    blueprint: Blueprint,
+    cache: HashMap<SimState, u32>,
+}
+
+impl Simulation {
+    pub fn simulate_step(&mut self, state: SimState) -> u32 {
+        assert!(state.time < self.time_limit);
+        if let Some(&result) = self.cache.get(&state) {
             return result;
         }
         let result = {
             let step = state.step();
-            if step.time >= TIME_LIMIT {
+            if step.time >= self.time_limit {
                 return step.cash.geodes;
             }
-            let do_nothing = self.simulate_step(cache, step);
-            let ore_bot = if step.cash.can_buy(self.ore_cost) {
-                self.simulate_step(cache, step.buy_ore_bot(&self.ore_cost))
-            } else {
-                do_nothing
+            let remaining = self.time_limit - step.time;
+            if step.cash.geodes
+                + step.bots.geodes * remaining
+                + TRIANGULAR_NUMBERS[remaining as usize]
+                <= self.best_result
+            {
+                return 0;
+            }
+            let do_nothing = self.simulate_step(step);
+            self.best_result = self.best_result.max(do_nothing);
+            if state.cash.can_buy(&self.blueprint.geodes_cost) {
+                let sim = self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost));
+                self.best_result = self.best_result.max(sim);
             };
-            let clay_bot = if step.cash.can_buy(self.clay_cost) {
-                self.simulate_step(cache, step.buy_clay_bot(&self.clay_cost))
-            } else {
-                do_nothing
+            if state.cash.can_buy(&self.blueprint.obsidian_cost) {
+                let sim = self.simulate_step(step.buy_obsidian_bot(&self.blueprint.obsidian_cost));
+                self.best_result = self.best_result.max(sim);
             };
-            let obsidian_bot = if step.cash.can_buy(self.obsidian_cost) {
-                self.simulate_step(cache, step.buy_obsidian_bot(&self.obsidian_cost))
-            } else {
-                do_nothing
+            if state.cash.can_buy(&self.blueprint.clay_cost) {
+                let sim = self.simulate_step(step.buy_clay_bot(&self.blueprint.clay_cost));
+                self.best_result = self.best_result.max(sim);
+            }
+            if state.cash.can_buy(&self.blueprint.ore_cost) {
+                let sim = self.simulate_step(step.buy_ore_bot(&self.blueprint.ore_cost));
+                self.best_result = self.best_result.max(sim);
             };
-            let geodes_bot = if step.cash.can_buy(self.geodes_cost) {
-                self.simulate_step(cache, step.buy_geodes(&self.geodes_cost))
-            } else {
-                do_nothing
-            };
-            do_nothing.max(ore_bot.max(clay_bot.max(obsidian_bot.max(geodes_bot))))
+            self.best_result
         };
-        cache.insert(state, result);
+        self.cache.insert(state, result);
         result
     }
 
-    pub fn simulate(&self) -> u32 {
-        let mut cache = HashMap::with_capacity(50000);
-        self.simulate_step(&mut cache, SimState::new())
+    pub fn simulate(blueprint: Blueprint, time_limit: u32) -> u32 {
+        let mut sim = Self {
+            time_limit,
+            best_result: 0,
+            blueprint,
+            cache: HashMap::with_capacity(50000),
+        };
+        sim.simulate_step(SimState::new())
     }
 }
 
 fn part1_dynamic_like(input: &mut dyn BufRead) -> String {
-    input
+    const TIME_LIMIT: u32 = 24;
+    let blueprints = input
         .byte_lines()
-        .map(|line| {
-            let blueprint = Blueprint::load(&line.unwrap());
-            blueprint.id * blueprint.simulate()
-        })
+        .flatten()
+        .map(Blueprint::load)
+        .collect::<Vec<_>>();
+
+    blueprints
+        .par_iter()
+        .map(|&blueprint| blueprint.id * Simulation::simulate(blueprint, TIME_LIMIT))
         .sum::<u32>()
         .to_string()
 }
 
-pub const SOLVERS: &[Solver] = &[part1_dynamic_like];
+fn part2_more_steps_less_elephants(input: &mut dyn BufRead) -> String {
+    const TIME_LIMIT: u32 = 32;
+    let blueprints = input
+        .byte_lines()
+        .flatten()
+        .map(Blueprint::load)
+        .collect::<Vec<_>>();
+
+    blueprints
+        .par_iter()
+        .map(|&blueprint| Simulation::simulate(blueprint, TIME_LIMIT))
+        .product::<u32>()
+        .to_string()
+}
+
+pub const SOLVERS: &[Solver] = &[part1_dynamic_like, part2_more_steps_less_elephants];
