@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     io::BufRead,
-    ops::{Add, Deref, Sub},
+    ops::{Add, Deref, Sub, Mul},
 };
 
 use bstr::io::BufReadExt;
@@ -75,6 +75,18 @@ impl Sub<Resources> for Resources {
     }
 }
 
+impl Mul<u32> for Resources {
+    type Output = Self;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        Self {
+            ore: self.ore * rhs,
+            clay: self.clay * rhs,
+            obsidian: self.obsidian * rhs,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Blueprint {
     id: u32,
@@ -126,10 +138,10 @@ impl SimState {
         }
     }
 
-    pub fn step(&self) -> Self {
+    pub fn steps(&self, n: u32) -> Self {
         Self {
-            time: self.time + 1,
-            cash: self.cash + self.bots,
+            time: self.time + n,
+            cash: self.cash + self.bots * n,
             bots: self.bots,
             geodes: self.geodes,
         }
@@ -190,7 +202,7 @@ impl Simulation {
         if self.cache.contains(&state) {
             return;
         }
-        let step = state.step();
+        let step = state.steps(1);
         if step.time >= self.time_limit {
             self.best_result = self.best_result.max(step.geodes);
             return;
