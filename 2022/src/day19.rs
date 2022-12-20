@@ -230,19 +230,11 @@ const TRIANGULAR_NUMBERS: [u32; 35] = [
 struct Simulation {
     best_result: u32,
     blueprint: Blueprint,
-    cache: HashSet<SimState>,
 }
 
 impl Simulation {
     pub fn simulate_step(&mut self, state: SimState) {
-        if self.cache.contains(&state) {
-            return;
-        }
         assert!(state.time_remaining > 0);
-        // if state.time_remaining == 0 {
-        //     self.best_result = self.best_result.max(state.geodes);
-        //     return;
-        // }
         if state.geodes + TRIANGULAR_NUMBERS[state.time_remaining as usize] <= self.best_result {
             return;
         }
@@ -265,14 +257,12 @@ impl Simulation {
             }
         }
         self.best_result = self.best_result.max(state.geodes);
-        self.cache.insert(state);
     }
 
     pub fn simulate(blueprint: Blueprint, time_limit: u32) -> u32 {
         let mut sim = Self {
             best_result: 0,
             blueprint,
-            cache: HashSet::with_capacity(1_500_000),
         };
         sim.simulate_step(SimState::new(time_limit));
         sim.best_result
