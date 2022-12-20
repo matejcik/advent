@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     io::BufRead,
     ops::{Add, Deref, Sub},
 };
@@ -181,49 +181,40 @@ struct Simulation {
     time_limit: u32,
     best_result: u32,
     blueprint: Blueprint,
-    cache: HashMap<SimState, u32>,
+    cache: HashSet<SimState>,
 }
 
 impl Simulation {
-    pub fn simulate_step(&mut self, state: SimState) -> u32 {
+    pub fn simulate_step(&mut self, state: SimState) {
         assert!(state.time < self.time_limit);
-        if let Some(&result) = self.cache.get(&state) {
-            return result;
+        if self.cache.contains(&state) {
+            return;
         }
-        let result = {
-            let step = state.step();
-            if step.time >= self.time_limit {
-                return step.geodes;
-            }
-            let remaining = self.time_limit - step.time;
-            if step.geodes + TRIANGULAR_NUMBERS[remaining as usize] <= self.best_result {
-                return 0;
-            }
-            let do_nothing = self.simulate_step(step);
-            self.best_result = self.best_result.max(do_nothing);
-            if state.cash.can_buy(&self.blueprint.geodes_cost) {
-                let sim =
-                    self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
-                self.best_result = self.best_result.max(sim);
-            };
-            if state.cash.can_buy(&self.blueprint.obsidian_cost) {
-                let sim = self.simulate_step(step.buy_obsidian_bot(&self.blueprint.obsidian_cost));
-                self.best_result = self.best_result.max(sim);
-            };
-            if state.cash.can_buy(&self.blueprint.clay_cost) {
-                let sim = self.simulate_step(step.buy_clay_bot(&self.blueprint.clay_cost));
-                self.best_result = self.best_result.max(sim);
-            }
-            if state.bots.ore < self.blueprint.max_ore_required
-                && state.cash.can_buy(&self.blueprint.ore_cost)
-            {
-                let sim = self.simulate_step(step.buy_ore_bot(&self.blueprint.ore_cost));
-                self.best_result = self.best_result.max(sim);
-            };
-            self.best_result
+        let step = state.step();
+        if step.time >= self.time_limit {
+            self.best_result = self.best_result.max(step.geodes);
+            return;
+        }
+        let remaining = self.time_limit - step.time;
+        if step.geodes + TRIANGULAR_NUMBERS[remaining as usize] <= self.best_result {
+            return;
+        }
+        self.simulate_step(step);
+        if state.cash.can_buy(&self.blueprint.geodes_cost) {
+            self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
         };
-        self.cache.insert(state, result);
-        result
+        if state.cash.can_buy(&self.blueprint.obsidian_cost) {
+            self.simulate_step(step.buy_obsidian_bot(&self.blueprint.obsidian_cost));
+        };
+        if state.cash.can_buy(&self.blueprint.clay_cost) {
+            self.simulate_step(step.buy_clay_bot(&self.blueprint.clay_cost));
+        }
+        if state.bots.ore < self.blueprint.max_ore_required
+            && state.cash.can_buy(&self.blueprint.ore_cost)
+        {
+            self.simulate_step(step.buy_ore_bot(&self.blueprint.ore_cost));
+        };
+        self.cache.insert(state);
     }
 
     pub fn simulate(blueprint: Blueprint, time_limit: u32) -> u32 {
@@ -231,9 +222,11 @@ impl Simulation {
             time_limit,
             best_result: 0,
             blueprint,
-            cache: HashMap::with_capacity(50000),
+            cache: HashSet::with_capacity(1_000_000),
         };
-        sim.simulate_step(SimState::new())
+        sim.simulate_step(SimState::new());
+        println!("cache size: {}", sim.cache.len());
+        sim.best_result
     }
 }
 
