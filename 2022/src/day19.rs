@@ -47,9 +47,7 @@ impl Resources {
     }
 
     pub const fn can_buy(&self, other: &Self) -> bool {
-        self.ore >= other.ore
-            && self.clay >= other.clay
-            && self.obsidian >= other.obsidian
+        self.ore >= other.ore && self.clay >= other.clay && self.obsidian >= other.obsidian
     }
 }
 
@@ -84,22 +82,28 @@ struct Blueprint {
     clay_cost: Resources,
     obsidian_cost: Resources,
     geodes_cost: Resources,
+    max_ore_required: u32,
 }
 
 impl Blueprint {
     fn load(line: impl Deref<Target = [u8]>) -> Self {
         let mut numbers = [0u64; 1 + 1 + 1 + 2 + 2];
         assert_eq!(parse_nums(&line, &mut numbers), numbers.len());
+        let ore_cost = Resources::new().add_ore(numbers[1] as i32);
+        let clay_cost = Resources::new().add_ore(numbers[2] as i32);
+        let obsidian_cost = Resources::new()
+            .add_ore(numbers[3] as i32)
+            .add_clay(numbers[4] as i32);
+        let geodes_cost = Resources::new()
+            .add_ore(numbers[5] as i32)
+            .add_obsidian(numbers[6] as i32);
         Self {
             id: numbers[0] as u32,
-            ore_cost: Resources::new().add_ore(numbers[1] as i32),
-            clay_cost: Resources::new().add_ore(numbers[2] as i32),
-            obsidian_cost: Resources::new()
-                .add_ore(numbers[3] as i32)
-                .add_clay(numbers[4] as i32),
-            geodes_cost: Resources::new()
-                .add_ore(numbers[5] as i32)
-                .add_obsidian(numbers[6] as i32),
+            ore_cost,
+            clay_cost,
+            obsidian_cost,
+            geodes_cost,
+            max_ore_required: clay_cost.ore.max(obsidian_cost.ore).max(geodes_cost.ore),
         }
     }
 }
@@ -192,16 +196,14 @@ impl Simulation {
                 return step.geodes;
             }
             let remaining = self.time_limit - step.time;
-            if step.geodes
-                + TRIANGULAR_NUMBERS[remaining as usize]
-                <= self.best_result
-            {
+            if step.geodes + TRIANGULAR_NUMBERS[remaining as usize] <= self.best_result {
                 return 0;
             }
             let do_nothing = self.simulate_step(step);
             self.best_result = self.best_result.max(do_nothing);
             if state.cash.can_buy(&self.blueprint.geodes_cost) {
-                let sim = self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
+                let sim =
+                    self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
                 self.best_result = self.best_result.max(sim);
             };
             if state.cash.can_buy(&self.blueprint.obsidian_cost) {
@@ -212,7 +214,9 @@ impl Simulation {
                 let sim = self.simulate_step(step.buy_clay_bot(&self.blueprint.clay_cost));
                 self.best_result = self.best_result.max(sim);
             }
-            if state.cash.can_buy(&self.blueprint.ore_cost) {
+            if state.bots.ore < self.blueprint.max_ore_required
+                && state.cash.can_buy(&self.blueprint.ore_cost)
+            {
                 let sim = self.simulate_step(step.buy_ore_bot(&self.blueprint.ore_cost));
                 self.best_result = self.best_result.max(sim);
             };
