@@ -14,7 +14,6 @@ struct Resources {
     ore: u32,
     clay: u32,
     obsidian: u32,
-    geodes: u32,
 }
 
 impl Resources {
@@ -23,7 +22,6 @@ impl Resources {
             ore: 0,
             clay: 0,
             obsidian: 0,
-            geodes: 0,
         }
     }
 
@@ -48,18 +46,10 @@ impl Resources {
         }
     }
 
-    pub const fn add_geodes(&self, geodes: i32) -> Self {
-        Self {
-            geodes: (self.geodes as i32 + geodes) as u32,
-            ..*self
-        }
-    }
-
     pub const fn can_buy(&self, other: &Self) -> bool {
         self.ore >= other.ore
             && self.clay >= other.clay
             && self.obsidian >= other.obsidian
-            && self.geodes >= other.geodes
     }
 }
 
@@ -71,7 +61,6 @@ impl Add<Resources> for Resources {
             ore: self.ore + rhs.ore,
             clay: self.clay + rhs.clay,
             obsidian: self.obsidian + rhs.obsidian,
-            geodes: self.geodes + rhs.geodes,
         }
     }
 }
@@ -84,7 +73,6 @@ impl Sub<Resources> for Resources {
             ore: self.ore - rhs.ore,
             clay: self.clay - rhs.clay,
             obsidian: self.obsidian - rhs.obsidian,
-            geodes: self.geodes - rhs.geodes,
         }
     }
 }
@@ -121,6 +109,7 @@ struct SimState {
     time: u32,
     cash: Resources,
     bots: Resources,
+    geodes: u32,
 }
 
 impl SimState {
@@ -129,6 +118,7 @@ impl SimState {
             time: 0,
             cash: Resources::new(),
             bots: Resources::new().add_ore(1),
+            geodes: 0,
         }
     }
 
@@ -137,6 +127,7 @@ impl SimState {
             time: self.time + 1,
             cash: self.cash + self.bots,
             bots: self.bots,
+            geodes: self.geodes,
         }
     }
 
@@ -145,6 +136,7 @@ impl SimState {
             time: self.time,
             cash: self.cash - *cost,
             bots: self.bots.add_ore(1),
+            geodes: self.geodes,
         }
     }
 
@@ -153,6 +145,7 @@ impl SimState {
             time: self.time,
             cash: self.cash - *cost,
             bots: self.bots.add_clay(1),
+            geodes: self.geodes,
         }
     }
 
@@ -161,14 +154,16 @@ impl SimState {
             time: self.time,
             cash: self.cash - *cost,
             bots: self.bots.add_obsidian(1),
+            geodes: self.geodes,
         }
     }
 
-    pub fn buy_geodes(&self, cost: &Resources) -> Self {
+    pub fn buy_geodes(&self, cost: &Resources, remaining: u32) -> Self {
         Self {
             time: self.time,
             cash: self.cash - *cost,
-            bots: self.bots.add_geodes(1),
+            bots: self.bots,
+            geodes: self.geodes + remaining,
         }
     }
 }
@@ -194,11 +189,10 @@ impl Simulation {
         let result = {
             let step = state.step();
             if step.time >= self.time_limit {
-                return step.cash.geodes;
+                return step.geodes;
             }
             let remaining = self.time_limit - step.time;
-            if step.cash.geodes
-                + step.bots.geodes * remaining
+            if step.geodes
                 + TRIANGULAR_NUMBERS[remaining as usize]
                 <= self.best_result
             {
@@ -207,7 +201,7 @@ impl Simulation {
             let do_nothing = self.simulate_step(step);
             self.best_result = self.best_result.max(do_nothing);
             if state.cash.can_buy(&self.blueprint.geodes_cost) {
-                let sim = self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost));
+                let sim = self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
                 self.best_result = self.best_result.max(sim);
             };
             if state.cash.can_buy(&self.blueprint.obsidian_cost) {
