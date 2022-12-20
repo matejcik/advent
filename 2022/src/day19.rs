@@ -1,7 +1,8 @@
+use core::time;
 use std::{
     collections::HashSet,
     io::BufRead,
-    ops::{Add, Deref, Sub, Mul},
+    ops::{Add, Deref, Mul, Sub},
 };
 
 use bstr::io::BufReadExt;
@@ -122,16 +123,16 @@ impl Blueprint {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct SimState {
-    time: u32,
+    time_remaining: u32,
     cash: Resources,
     bots: Resources,
     geodes: u32,
 }
 
 impl SimState {
-    pub const fn new() -> Self {
+    pub const fn new(time_remaining: u32) -> Self {
         Self {
-            time: 0,
+            time_remaining,
             cash: Resources::new(),
             bots: Resources::new().add_ore(1),
             geodes: 0,
@@ -139,8 +140,9 @@ impl SimState {
     }
 
     pub fn steps(&self, n: u32) -> Self {
+        assert!(n <= self.time_remaining);
         Self {
-            time: self.time + n,
+            time_remaining: self.time_remaining - n,
             cash: self.cash + self.bots * n,
             bots: self.bots,
             geodes: self.geodes,
@@ -149,7 +151,7 @@ impl SimState {
 
     pub fn buy_ore_bot(&self, cost: &Resources) -> Self {
         Self {
-            time: self.time,
+            time_remaining: self.time_remaining,
             cash: self.cash - *cost,
             bots: self.bots.add_ore(1),
             geodes: self.geodes,
@@ -158,7 +160,7 @@ impl SimState {
 
     pub fn buy_clay_bot(&self, cost: &Resources) -> Self {
         Self {
-            time: self.time,
+            time_remaining: self.time_remaining,
             cash: self.cash - *cost,
             bots: self.bots.add_clay(1),
             geodes: self.geodes,
@@ -167,7 +169,7 @@ impl SimState {
 
     pub fn buy_obsidian_bot(&self, cost: &Resources) -> Self {
         Self {
-            time: self.time,
+            time_remaining: self.time_remaining,
             cash: self.cash - *cost,
             bots: self.bots.add_obsidian(1),
             geodes: self.geodes,
@@ -176,7 +178,7 @@ impl SimState {
 
     pub fn buy_geodes(&self, cost: &Resources, remaining: u32) -> Self {
         Self {
-            time: self.time,
+            time_remaining: self.time_remaining,
             cash: self.cash - *cost,
             bots: self.bots,
             geodes: self.geodes + remaining,
@@ -190,7 +192,6 @@ const TRIANGULAR_NUMBERS: [u32; 35] = [
 ];
 
 struct Simulation {
-    time_limit: u32,
     best_result: u32,
     blueprint: Blueprint,
     cache: HashSet<SimState>,
@@ -198,22 +199,20 @@ struct Simulation {
 
 impl Simulation {
     pub fn simulate_step(&mut self, state: SimState) {
-        assert!(state.time < self.time_limit);
         if self.cache.contains(&state) {
             return;
         }
         let step = state.steps(1);
-        if step.time >= self.time_limit {
+        if step.time_remaining == 0 {
             self.best_result = self.best_result.max(step.geodes);
             return;
         }
-        let remaining = self.time_limit - step.time;
-        if step.geodes + TRIANGULAR_NUMBERS[remaining as usize] <= self.best_result {
+        if step.geodes + TRIANGULAR_NUMBERS[step.time_remaining as usize] <= self.best_result {
             return;
         }
         self.simulate_step(step);
         if state.cash.can_buy(&self.blueprint.geodes_cost) {
-            self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, remaining));
+            self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, step.time_remaining));
         };
         if state.cash.can_buy(&self.blueprint.obsidian_cost) {
             self.simulate_step(step.buy_obsidian_bot(&self.blueprint.obsidian_cost));
@@ -231,12 +230,11 @@ impl Simulation {
 
     pub fn simulate(blueprint: Blueprint, time_limit: u32) -> u32 {
         let mut sim = Self {
-            time_limit,
             best_result: 0,
             blueprint,
             cache: HashSet::with_capacity(1_000_000),
         };
-        sim.simulate_step(SimState::new());
+        sim.simulate_step(SimState::new(time_limit));
         println!("cache size: {}", sim.cache.len());
         sim.best_result
     }
