@@ -272,10 +272,9 @@ impl Simulation {
         let mut sim = Self {
             best_result: 0,
             blueprint,
-            cache: HashSet::with_capacity(1_000_000),
+            cache: HashSet::with_capacity(1_500_000),
         };
         sim.simulate_step(SimState::new(time_limit));
-        println!("cache size: {}", sim.cache.len());
         sim.best_result
     }
 }
@@ -299,6 +298,7 @@ fn part2_more_steps_less_elephants(input: &mut dyn BufRead) -> String {
     const TIME_LIMIT: u32 = 32;
     let blueprints = input
         .byte_lines()
+        .take(3)
         .flatten()
         .map(Blueprint::load)
         .collect::<Vec<_>>();
