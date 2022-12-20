@@ -149,6 +149,42 @@ impl SimState {
         }
     }
 
+    fn div_round_up(a: u32, b: u32) -> u32 {
+        (a + b - 1) / b
+    }
+
+    pub fn can_afford_when(&self, cost: &Resources) -> Option<u32> {
+        if self.time_remaining <= 1 {
+            return None;
+        }
+        if self.cash.can_buy(cost) {
+            return Some(1);
+        }
+        let ore_units = cost.ore.saturating_sub(self.cash.ore);
+        let clay_units = cost.clay.saturating_sub(self.cash.clay);
+        let obsidian_units = cost.obsidian.saturating_sub(self.cash.obsidian);
+        let mut max_time = Self::div_round_up(ore_units, self.bots.ore);
+        if clay_units > 0 {
+            if self.bots.clay == 0 {
+                return None;
+            } else {
+                max_time = max_time.max(Self::div_round_up(clay_units, self.bots.clay));
+            }
+        }
+        if obsidian_units > 0 {
+            if self.bots.obsidian == 0 {
+                return None;
+            } else {
+                max_time = max_time.max(Self::div_round_up(obsidian_units, self.bots.obsidian));
+            }
+        }
+        if max_time >= self.time_remaining - 1 {
+            None
+        } else {
+            Some(max_time + 1)
+        }
+    }
+
     pub fn buy_ore_bot(&self, cost: &Resources) -> Self {
         Self {
             time_remaining: self.time_remaining,
@@ -176,12 +212,12 @@ impl SimState {
         }
     }
 
-    pub fn buy_geodes(&self, cost: &Resources, remaining: u32) -> Self {
+    pub fn buy_geodes(&self, cost: &Resources) -> Self {
         Self {
             time_remaining: self.time_remaining,
             cash: self.cash - *cost,
             bots: self.bots,
-            geodes: self.geodes + remaining,
+            geodes: self.geodes + self.time_remaining,
         }
     }
 }
@@ -202,29 +238,33 @@ impl Simulation {
         if self.cache.contains(&state) {
             return;
         }
-        let step = state.steps(1);
-        if step.time_remaining == 0 {
-            self.best_result = self.best_result.max(step.geodes);
+        assert!(state.time_remaining > 0);
+        // if state.time_remaining == 0 {
+        //     self.best_result = self.best_result.max(state.geodes);
+        //     return;
+        // }
+        if state.geodes + TRIANGULAR_NUMBERS[state.time_remaining as usize] <= self.best_result {
             return;
         }
-        if step.geodes + TRIANGULAR_NUMBERS[step.time_remaining as usize] <= self.best_result {
-            return;
+        if let Some(when) = state.can_afford_when(&self.blueprint.geodes_cost) {
+            self.simulate_step(state.steps(when).buy_geodes(&self.blueprint.geodes_cost));
         }
-        self.simulate_step(step);
-        if state.cash.can_buy(&self.blueprint.geodes_cost) {
-            self.simulate_step(step.buy_geodes(&self.blueprint.geodes_cost, step.time_remaining));
-        };
-        if state.cash.can_buy(&self.blueprint.obsidian_cost) {
-            self.simulate_step(step.buy_obsidian_bot(&self.blueprint.obsidian_cost));
-        };
-        if state.cash.can_buy(&self.blueprint.clay_cost) {
-            self.simulate_step(step.buy_clay_bot(&self.blueprint.clay_cost));
+        if let Some(when) = state.can_afford_when(&self.blueprint.obsidian_cost) {
+            self.simulate_step(
+                state
+                    .steps(when)
+                    .buy_obsidian_bot(&self.blueprint.obsidian_cost),
+            );
         }
-        if state.bots.ore < self.blueprint.max_ore_required
-            && state.cash.can_buy(&self.blueprint.ore_cost)
-        {
-            self.simulate_step(step.buy_ore_bot(&self.blueprint.ore_cost));
-        };
+        if let Some(when) = state.can_afford_when(&self.blueprint.clay_cost) {
+            self.simulate_step(state.steps(when).buy_clay_bot(&self.blueprint.clay_cost));
+        }
+        if state.bots.ore < self.blueprint.max_ore_required {
+            if let Some(when) = state.can_afford_when(&self.blueprint.ore_cost) {
+                self.simulate_step(state.steps(when).buy_ore_bot(&self.blueprint.ore_cost));
+            }
+        }
+        self.best_result = self.best_result.max(state.geodes);
         self.cache.insert(state);
     }
 
