@@ -151,30 +151,71 @@ impl MonkeyOp {
         result
     }
 
-    pub fn find_human(&self, human: Monkey, others: &HashMap<Monkey, Self>) {
+    pub fn find_human(&self, human: Monkey, others: &HashMap<Monkey, Self>) -> Option<Side> {
         if self.human_side.borrow().is_none() {
             let human_side = if self.left == human {
                 Some(Side::Left)
             } else if self.right == human {
                 Some(Side::Right)
-            } else if self.left.is_monkey() {
-                others[&self.left].find_human(human, others);
-                Some(Side::Left)
-            } else if self.right.is_monkey() {
-                others[&self.right].find_human(human, others);
-                Some(Side::Right)
             } else {
-                None
+                let left_human = if self.left.is_monkey() {
+                    others[&self.left].find_human(human, others)
+                } else {
+                    None
+                };
+                let right_human = if self.right.is_monkey() {
+                    others[&self.right].find_human(human, others)
+                } else {
+                    None
+                };
+                if left_human.is_some() {
+                    Some(Side::Left)
+                } else if right_human.is_some() {
+                    Some(Side::Right)
+                } else {
+                    None
+                }
             };
             self.human_side.replace(human_side);
+        }
+        *self.human_side.borrow()
+    }
+
+    pub fn left_result(&self, others: &HashMap<Monkey, Self>) -> u64 {
+        if self.left.is_number() {
+            self.left.0
+        } else {
+            others[&self.left].result.borrow().unwrap()
+        }
+    }
+
+    pub fn right_result(&self, others: &HashMap<Monkey, Self>) -> u64 {
+        if self.right.is_number() {
+            self.right.0
+        } else {
+            others[&self.right].result.borrow().unwrap()
+        }
+    }
+
+    pub fn get(&self, side: Side) -> Monkey {
+        match side {
+            Side::Left => self.left,
+            Side::Right => self.right,
         }
     }
 
     pub fn human_value(&self, human: Monkey, others: &HashMap<Monkey, Self>, passdown: u64) -> u64 {
+        let left_result = self.left_result(others);
+        let right_result = self.right_result(others);
         let side = self.human_side.borrow().unwrap();
-        unimplemented!()
+        let result = self.op.unapply(passdown, side, left_result, right_result);
+        if self.left == human || self.right == human {
+            result
+        } else {
+            let human_side = self.get(side);
+            others[&human_side].human_value(human, others, result)
+        }
     }
- 
 }
 
 fn part1_monkey_tree(input: &mut dyn BufRead) -> String {
@@ -192,4 +233,36 @@ fn part1_monkey_tree(input: &mut dyn BufRead) -> String {
     monkeys[&root].calculate(&monkeys).to_string()
 }
 
-pub const SOLVERS: &[Solver] = &[part1_monkey_tree];
+fn part2_human_value(input: &mut dyn BufRead) -> String {
+    let monkeys = input
+        .byte_lines()
+        .flatten()
+        .map(|line| {
+            let monkey = Monkey::load_monkey(&line[..4]);
+            let op = MonkeyOp::load(&line[6..]);
+            (monkey, op)
+        })
+        .collect::<HashMap<_, _>>();
+
+    let root = Monkey::load_monkey(b"root");
+    let root_monkey = &monkeys[&root];
+    // prepare results
+    root_monkey.calculate(&monkeys);
+    // find human side
+    let human = Monkey::load_monkey(b"humn");
+    root_monkey.find_human(human, &monkeys);
+    // calculate human value
+    let human_side = root_monkey.human_side.borrow().unwrap();
+    let human_side_monkey = &monkeys[&root_monkey.get(human_side)];
+    match human_side {
+        Side::Left => {
+            human_side_monkey.human_value(human, &monkeys, root_monkey.right_result(&monkeys))
+        }
+        Side::Right => {
+            human_side_monkey.human_value(human, &monkeys, root_monkey.left_result(&monkeys))
+        }
+    }
+    .to_string()
+}
+
+pub const SOLVERS: &[Solver] = &[part1_monkey_tree, part2_human_value];
