@@ -1,12 +1,9 @@
 use std::io::BufRead;
 
 use bstr::io::BufReadExt;
-use itertools::Itertools;
 
 use crate::tiles::Tiles;
 use crate::Solver;
-
-const MAX_SIZE: usize = 151 * 200;
 
 struct Tokenizer(Vec<u8>);
 
@@ -109,8 +106,8 @@ impl Walker {
                 let mut x = self.x;
                 let mut y = self.y;
                 loop {
-                    x = ((x as isize + dx) as usize) % map.width();
-                    y = ((y as isize + dy) as usize) % map.height();
+                    x = (x as isize + dx).rem_euclid(map.width() as isize) as usize;
+                    y = (y as isize + dy).rem_euclid(map.height() as isize) as usize;
                     match map[(x, y)] {
                         b'.' => {
                             self.x = x;
