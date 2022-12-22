@@ -1,5 +1,5 @@
 #![feature(portable_simd)]
-
+#![feature(int_roundings)]
 use std::io::BufRead;
 
 pub mod bitset;
