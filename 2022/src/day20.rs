@@ -159,9 +159,12 @@ fn do_mix(data: &mut SparseVec<(usize, i64)>, start_finger: usize) -> usize {
     let mut finger = start_finger;
     let mut cur = 0;
     while cur < len {
-        while data[finger].0 != cur {
-            finger = (finger + 1) % len
-        }
+        finger = (finger
+            + data
+                .iter_from(finger)
+                .position(|&(idx, _)| idx == cur)
+                .unwrap())
+            % len;
         let (idx, n) = data[finger];
         assert_eq!(idx, cur);
         let dest_index = (finger as i64 + n).rem_euclid(len as i64 - 1) as usize;
