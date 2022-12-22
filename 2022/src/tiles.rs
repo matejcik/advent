@@ -71,8 +71,8 @@ impl Add for Point {
 }
 
 pub struct Tiles<T> {
-    entry_len: usize,
-    line_width: usize,
+    pub entry_len: usize,
+    pub line_width: usize,
     pub entries: Vec<T>,
 }
 
@@ -90,6 +90,15 @@ impl Tiles<u8> {
         Self {
             entry_len,
             line_width: entry_len + 1,
+            entries,
+        }
+    }
+
+    pub fn from_vec(entries: Vec<u8>, entry_len: usize, terminator_len: usize) -> Self {
+        assert!(entries.len() % (entry_len + terminator_len) == 0);
+        Self {
+            entry_len,
+            line_width: entry_len + terminator_len,
             entries,
         }
     }
