@@ -6,7 +6,7 @@ use clap::Parser;
 
 use advent2022::{
     day01, day02, day03, day04, day05, day06, day07, day08, day09, day10, day11, day12, day13,
-    day14, day15, day16, day17, day18, day19, day20, Solver, day21,
+    day14, day15, day16, day17, day18, day19, day20, day21, day22, day23, day24, day25, Solver,
 };
 use prettytable::row;
 
@@ -92,7 +92,7 @@ fn main() {
     println!("Total runtime: {:.02} µs", total_runtime / 1000f64);
 }
 
-const DAY_MAX: u8 = 21;
+const DAY_MAX: u8 = 25;
 
 fn get_day(day: u8) -> &'static [Solver] {
     match day {
@@ -117,6 +117,10 @@ fn get_day(day: u8) -> &'static [Solver] {
         19 => day19::SOLVERS,
         20 => day20::SOLVERS,
         21 => day21::SOLVERS,
+        22 => day22::SOLVERS,
+        23 => day23::SOLVERS,
+        24 => day24::SOLVERS,
+        25 => day25::SOLVERS,
         _ => panic!("Day {} not implemented", day),
     }
 }
