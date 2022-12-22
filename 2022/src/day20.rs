@@ -8,12 +8,13 @@ struct SparseVec<T>(Vec<Vec<T>>);
 
 impl<T: Clone> SparseVec<T> {
     const CHUNK_SIZE: usize = 128;
+    const CHUNK_CAPACITY: usize = 128 + 64;
 
     fn with_capacity(capacity: usize) -> Self {
         let chunks = capacity.div_ceil(Self::CHUNK_SIZE);
         let mut chunk_vec = Vec::with_capacity(chunks);
         for _ in 0..chunks {
-            chunk_vec.push(Vec::with_capacity(Self::CHUNK_SIZE * 2));
+            chunk_vec.push(Vec::with_capacity(Self::CHUNK_CAPACITY));
         }
         Self(chunk_vec)
     }
@@ -21,16 +22,15 @@ impl<T: Clone> SparseVec<T> {
     fn rebalance(&mut self) {
         let len = self.len();
         let mut new_vec = Vec::with_capacity(self.0.len() * Self::CHUNK_SIZE);
-        let mut chunk = Vec::with_capacity(Self::CHUNK_SIZE * 2);
+        let mut chunk = Vec::with_capacity(Self::CHUNK_CAPACITY);
         for prev_chunk in self.0.iter() {
             let mut prev_slice = prev_chunk.as_slice();
             while prev_slice.len() >= Self::CHUNK_SIZE - chunk.len() {
                 let remain = Self::CHUNK_SIZE - chunk.len();
                 chunk.extend_from_slice(&prev_slice[..remain]);
                 prev_slice = &prev_slice[remain..];
-                let len = chunk.len();
                 new_vec.push(chunk);
-                chunk = Vec::with_capacity(Self::CHUNK_SIZE * 2);
+                chunk = Vec::with_capacity(Self::CHUNK_CAPACITY);
             }
             chunk.extend_from_slice(prev_slice);
         }
@@ -46,7 +46,7 @@ impl<T: Clone> SparseVec<T> {
         for chunk in self.0.iter_mut() {
             if idx <= total + chunk.len() {
                 chunk.insert(idx - total, item);
-                if chunk.len() >= Self::CHUNK_SIZE * 2 {
+                if chunk.len() >= chunk.capacity() {
                     self.rebalance();
                 }
                 return;
@@ -61,7 +61,7 @@ impl<T: Clone> SparseVec<T> {
         for chunk in self.0.iter_mut() {
             if idx < total + chunk.len() {
                 chunk.remove(idx - total);
-                if chunk.len() < Self::CHUNK_SIZE / 2 {
+                if chunk.is_empty() {
                     self.rebalance();
                 }
                 return;
