@@ -21,92 +21,136 @@ const MOVES: [Point; 4] = [
     Point::new(1, 0),
 ];
 
-fn round(map: &mut Tiles<u8>, proposals: &mut Tiles<i8>, step: usize) -> bool {
-    for (idx, _) in map.entries.iter().enumerate().filter(|(_, &c)| c == 1) {
-        let p = map.coords_for(idx);
-        assert!(p.x > 0 && p.y > 0);
-        // find neighborhood for this point
-        let neighbors: u8 = (map[Point::new(p.x - 1, p.y - 1)] << 7)
-            + (map[Point::new(p.x, p.y - 1)] << 6)
-            + (map[Point::new(p.x + 1, p.y - 1)] << 5)
-            + (map[Point::new(p.x - 1, p.y)] << 4)
-            + (map[Point::new(p.x + 1, p.y)] << 3)
-            + (map[Point::new(p.x - 1, p.y + 1)] << 2)
-            + (map[Point::new(p.x, p.y + 1)] << 1)
-            + map[Point::new(p.x + 1, p.y + 1)];
-        // if there are no neighbors, this point does not move
-        if neighbors == 0 {
-            continue;
+struct Map {
+    map: Tiles<u8>,
+    proposals: Tiles<i8>,
+    min_bounds: Point,
+    max_bounds: Point,
+    min_bounds_moving: Point,
+    max_bounds_moving: Point,
+    step: usize,
+}
+
+impl Map {
+    pub fn new(mut source: Tiles<u8>) -> Self {
+        source.entries.iter_mut().for_each(|c| match c {
+            b'#' => *c = 1,
+            _ => *c = 0,
+        });
+        let mut bigger_map =
+            Tiles::new(source.width() + EXPAND * 2, source.height() + EXPAND * 2, 0);
+        bigger_map.copy(EXPAND, EXPAND, &source);
+        let proposals = Tiles::new(bigger_map.width(), bigger_map.height(), -1);
+
+        Self {
+            map: bigger_map,
+            proposals,
+            min_bounds: Point::from((EXPAND, EXPAND)),
+            max_bounds: Point::from((EXPAND + source.width(), EXPAND + source.height())),
+            min_bounds_moving: Point::from((EXPAND, EXPAND)),
+            max_bounds_moving: Point::from((EXPAND + source.width(), EXPAND + source.height())),
+            step: 0,
         }
-        for i in 0..4 {
-            // start at the side matching the current step
-            let i = (i + step) % 4;
-            let side = SIDES[i];
-            if neighbors & side != 0 {
-                // side is occupied, try another
-                continue;
+    }
+
+    fn print(&self) {
+        for y in self.min_bounds.y - 1..=self.max_bounds.y + 1 {
+            for x in self.min_bounds.x - 1..=self.max_bounds.x + 1 {
+                let p = Point::from((x, y));
+                if self.map[p] == 0 {
+                    print!(".");
+                } else {
+                    print!("#");
+                }
             }
-            let np = p + MOVES[i];
-            // propose moving in this direction
-            // if someone already proposed, the move is cancelled
-            // (use 4 instead of 0 so that if multiple points propose the same move,
-            // all are in conflict)
-            proposals[np] = if proposals[np] > -1 { 4 } else { i as i8 };
-            break;
+            println!();
         }
     }
-    let mut moved = false;
-    for (idx, prop) in proposals
-        .entries
-        .iter_mut()
-        .enumerate()
-        .filter(|(_, c)| **c > -1)
-    {
-        let prop_val = *prop as usize;
-        *prop = -1;
-        let p = map.coords_for(idx);
-        if prop_val >= 4 {
-            // move cancelled
-            continue;
+
+    fn round(&mut self) -> bool {
+        for y in self.min_bounds_moving.y - 1..=self.max_bounds_moving.y + 1 {
+            for x in self.min_bounds_moving.x - 1..=self.max_bounds_moving.x + 1 {
+                let p = Point::from((x, y));
+                if self.map[p] == 0 {
+                    continue;
+                }
+                // find neighborhood for this point
+                let neighbors: u8 = (self.map[Point::new(p.x - 1, p.y - 1)] << 7)
+                    + (self.map[Point::new(p.x, p.y - 1)] << 6)
+                    + (self.map[Point::new(p.x + 1, p.y - 1)] << 5)
+                    + (self.map[Point::new(p.x - 1, p.y)] << 4)
+                    + (self.map[Point::new(p.x + 1, p.y)] << 3)
+                    + (self.map[Point::new(p.x - 1, p.y + 1)] << 2)
+                    + (self.map[Point::new(p.x, p.y + 1)] << 1)
+                    + self.map[Point::new(p.x + 1, p.y + 1)];
+                // if there are no neighbors, this point does not move
+                if neighbors == 0 {
+                    continue;
+                }
+                for i in 0..4 {
+                    // start at the side matching the current step
+                    let i = (i + self.step) % 4;
+                    let side = SIDES[i];
+                    if neighbors & side != 0 {
+                        // side is occupied, try another
+                        continue;
+                    }
+                    let np = p + MOVES[i];
+                    // propose moving in this direction
+                    // if someone already proposed, the move is cancelled
+                    // (use 4 instead of 0 so that if multiple points propose the same move,
+                    // all are in conflict)
+                    self.proposals[np] = if self.proposals[np] > -1 { 4 } else { i as i8 };
+                    break;
+                }
+            }
         }
-        // move here from the proposed direction
-        let np = p + MOVES[prop_val] * -1;
-        map[p] = 1;
-        map[np] = 0;
-        moved = true;
+        let mut moved = false;
+        let mut min_bounds_moving = Point::new(i16::MAX, i16::MAX);
+        let mut max_bounds_moving = Point::new(0, 0);
+        for y in self.min_bounds_moving.y - 2..=self.max_bounds_moving.y + 2 {
+            for x in self.min_bounds_moving.x - 2..=self.max_bounds_moving.x + 2 {
+                let p = Point::from((x, y));
+                let prop_val = self.proposals[p];
+                if prop_val < 0 {
+                    // no proposal
+                    continue;
+                }
+                self.proposals[p] = -1;
+                if prop_val >= 4 {
+                    // move cancelled
+                    continue;
+                }
+                // move here from the proposed direction
+                let np = p + MOVES[prop_val as usize] * -1;
+                self.map[p] = 1;
+                self.map[np] = 0;
+                moved = true;
+                min_bounds_moving = min_bounds_moving.min_bound(p);
+                max_bounds_moving = max_bounds_moving.max_bound(p);
+            }
+        }
+        self.min_bounds_moving = min_bounds_moving;
+        self.max_bounds_moving = max_bounds_moving;
+        self.min_bounds = self.min_bounds.min_bound(self.min_bounds_moving);
+        self.max_bounds = self.max_bounds.max_bound(self.max_bounds_moving);
+        self.step += 1;
+        moved
     }
-    moved
 }
 
 pub fn part1_ten_rounds(input: &mut dyn BufRead) -> String {
-    let mut map = Tiles::load(input, INPUT_SIZE);
-    map.entries.iter_mut().for_each(|c| match c {
-        b'#' => *c = 1,
-        _ => *c = 0,
-    });
-    let mut bigger_map = Tiles::new(map.width() + EXPAND * 2, map.height() + EXPAND * 2, 0);
-    bigger_map.copy(EXPAND, EXPAND, &map);
-    let mut proposals = Tiles::new(bigger_map.width(), bigger_map.height(), -1);
-    assert_eq!(bigger_map.entries.len(), proposals.entries.len());
+    let input_map = Tiles::load(input, INPUT_SIZE);
+    let mut map = Map::new(input_map);
 
-    for i in 0..10 {
-        round(&mut bigger_map, &mut proposals, i);
-    }
-
-    let mut min_bound = Point::new(i16::MAX, i16::MAX);
-    let mut max_bound = Point::new(0, 0);
-    for (p, &c) in bigger_map.entries.iter().enumerate() {
-        if c == 1 {
-            let p = bigger_map.coords_for(p);
-            min_bound = min_bound.min_bound(p);
-            max_bound = max_bound.max_bound(p);
-        }
+    for _ in 0..10 {
+        map.round();
     }
 
     let mut spaces = 0;
-    for y in min_bound.y..=max_bound.y {
-        for x in min_bound.x..=max_bound.x {
-            spaces += 1 - bigger_map[(x as usize, y as usize)] as usize;
+    for y in map.min_bounds.y..=map.max_bounds.y {
+        for x in map.min_bounds.x..=map.max_bounds.x {
+            spaces += 1 - map.map[(x as usize, y as usize)] as usize;
         }
     }
 
@@ -114,24 +158,11 @@ pub fn part1_ten_rounds(input: &mut dyn BufRead) -> String {
 }
 
 pub fn part2_move_until_done(input: &mut dyn BufRead) -> String {
-    let mut map = Tiles::load(input, INPUT_SIZE);
-    map.entries.iter_mut().for_each(|c| match c {
-        b'#' => *c = 1,
-        _ => *c = 0,
-    });
-    let mut bigger_map = Tiles::new(map.width() + EXPAND * 2, map.height() + EXPAND * 2, 0);
-    bigger_map.copy(EXPAND, EXPAND, &map);
-    let mut proposals = Tiles::new(bigger_map.width(), bigger_map.height(), -1);
+    let input_map = Tiles::load(input, INPUT_SIZE);
+    let mut map = Map::new(input_map);
 
-    let mut counter = 0;
-    loop {
-        if !round(&mut bigger_map, &mut proposals, counter) {
-            break;
-        } else {
-            counter += 1;
-        }
-    }
-    (counter + 1).to_string()
+    while map.round() {}
+    map.step.to_string()
 }
 
 pub const SOLVERS: &[Solver] = &[part1_ten_rounds, part2_move_until_done];
