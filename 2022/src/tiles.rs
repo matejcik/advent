@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     io::BufRead,
-    ops::{Add, Index, IndexMut},
+    ops::{Add, Index, IndexMut, Mul},
 };
 
 use num_traits::AsPrimitive;
@@ -41,6 +41,14 @@ impl Point {
     pub fn manhattan_distance(&self, other: Self) -> CoordType {
         (self.x - other.x).abs() + (self.y - other.y).abs()
     }
+
+    pub fn min_bound(&self, other: Self) -> Self {
+        Self::new(self.x.min(other.x), self.y.min(other.y))
+    }
+
+    pub fn max_bound(&self, other: Self) -> Self {
+        Self::new(self.x.max(other.x), self.y.max(other.y))
+    }
 }
 
 impl<N> Into<(N, N)> for Point
@@ -67,6 +75,14 @@ impl Add for Point {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl Mul<CoordType> for Point {
+    type Output = Self;
+
+    fn mul(self, rhs: CoordType) -> Self::Output {
+        Self::new(self.x * rhs, self.y * rhs)
     }
 }
 
@@ -121,6 +137,18 @@ impl<T: Copy> Tiles<T> {
     ) -> impl Iterator<Item = T> + 'a {
         stepper.map(move |idx| self.entries[idx])
     }
+
+    pub fn copy(&mut self, x: usize, y: usize, other: &Self) {
+        let mut start = y * self.line_width + x;
+        let step = self.line_width;
+        for oy in 0..other.height() {
+            let other_start = oy * other.line_width;
+            let len = other.entry_len;
+            self.entries[start..start + len]
+                .copy_from_slice(&other.entries[other_start..other_start + len]);
+            start += step;
+        }
+    }
 }
 
 impl<T> Tiles<T> {
@@ -137,6 +165,17 @@ impl<T> Tiles<T> {
             && point.y >= 0
             && point.x < self.width() as CoordType
             && point.y < self.height() as CoordType
+    }
+
+    pub fn index_for(&self, point: Point) -> usize {
+        (point.y as usize) * self.line_width + (point.x as usize)
+    }
+
+    pub fn coords_for(&self, idx: usize) -> Point {
+        Point::new(
+            (idx % self.line_width) as CoordType,
+            (idx / self.line_width) as CoordType,
+        )
     }
 
     pub fn rows_steppers(&self) -> impl Iterator<Item = Stepper> {
