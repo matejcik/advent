@@ -21,9 +21,20 @@ const MOVES: [Point; 4] = [
     Point::new(1, 0),
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Entry {
+    current: u8,
+    next: u8,
+}
+
+impl Entry {
+    fn new(current: u8, next: u8) -> Self {
+        Self { current, next }
+    }
+}
+
 struct Map {
-    map: Tiles<u8>,
-    proposals: Tiles<i8>,
+    map: Tiles<Entry>,
     min_bounds: Point,
     max_bounds: Point,
     min_bounds_moving: Point,
@@ -32,19 +43,29 @@ struct Map {
 }
 
 impl Map {
-    pub fn new(mut source: Tiles<u8>) -> Self {
-        source.entries.iter_mut().for_each(|c| match c {
-            b'#' => *c = 1,
-            _ => *c = 0,
-        });
-        let mut bigger_map =
-            Tiles::new(source.width() + EXPAND * 2, source.height() + EXPAND * 2, 0);
-        bigger_map.copy(EXPAND, EXPAND, &source);
-        let proposals = Tiles::new(bigger_map.width(), bigger_map.height(), -1);
+    pub fn new(source: Tiles<u8>) -> Self {
+        let modified = source
+            .entries
+            .iter()
+            .map(|c| match c {
+                b'#' => Entry::new(1, 0),
+                _ => Entry::new(0, 0),
+            })
+            .collect::<Vec<_>>();
+        let map = Tiles {
+            entries: modified,
+            entry_len: source.entry_len,
+            line_width: source.line_width,
+        };
+        let mut bigger_map = Tiles::new(
+            map.width() + EXPAND * 2,
+            map.height() + EXPAND * 2,
+            Entry::new(0, 0),
+        );
+        bigger_map.copy(EXPAND, EXPAND, &map);
 
         Self {
             map: bigger_map,
-            proposals,
             min_bounds: Point::from((EXPAND, EXPAND)),
             max_bounds: Point::from((EXPAND + source.width(), EXPAND + source.height())),
             min_bounds_moving: Point::from((EXPAND, EXPAND)),
@@ -57,7 +78,7 @@ impl Map {
         for y in self.min_bounds.y - 1..=self.max_bounds.y + 1 {
             for x in self.min_bounds.x - 1..=self.max_bounds.x + 1 {
                 let p = Point::from((x, y));
-                if self.map[p] == 0 {
+                if self.map[p].current == 0 {
                     print!(".");
                 } else {
                     print!("#");
@@ -68,25 +89,36 @@ impl Map {
     }
 
     fn round(&mut self) -> bool {
+        let mut moved = false;
+        let mut min_bounds_moving = Point::new(i16::MAX, i16::MAX);
+        let mut max_bounds_moving = Point::new(0, 0);
+
         for y in self.min_bounds_moving.y - 1..=self.max_bounds_moving.y + 1 {
             for x in self.min_bounds_moving.x - 1..=self.max_bounds_moving.x + 1 {
-                let p = Point::from((x, y));
-                if self.map[p] == 0 {
+                let cur_point = Point::from((x, y));
+                if self.map[cur_point].current == 0 {
                     continue;
                 }
                 // find neighborhood for this point
-                let neighbors: u8 = (self.map[Point::new(p.x - 1, p.y - 1)] << 7)
-                    + (self.map[Point::new(p.x, p.y - 1)] << 6)
-                    + (self.map[Point::new(p.x + 1, p.y - 1)] << 5)
-                    + (self.map[Point::new(p.x - 1, p.y)] << 4)
-                    + (self.map[Point::new(p.x + 1, p.y)] << 3)
-                    + (self.map[Point::new(p.x - 1, p.y + 1)] << 2)
-                    + (self.map[Point::new(p.x, p.y + 1)] << 1)
-                    + self.map[Point::new(p.x + 1, p.y + 1)];
+                let neighbors: u8 =
+                    (self.map[Point::new(cur_point.x - 1, cur_point.y - 1)].current << 7)
+                        + (self.map[Point::new(cur_point.x, cur_point.y - 1)].current << 6)
+                        + (self.map[Point::new(cur_point.x + 1, cur_point.y - 1)].current << 5)
+                        + (self.map[Point::new(cur_point.x - 1, cur_point.y)].current << 4)
+                        + (self.map[Point::new(cur_point.x + 1, cur_point.y)].current << 3)
+                        + (self.map[Point::new(cur_point.x - 1, cur_point.y + 1)].current << 2)
+                        + (self.map[Point::new(cur_point.x, cur_point.y + 1)].current << 1)
+                        + self.map[Point::new(cur_point.x + 1, cur_point.y + 1)].current;
+                // by default, stay in place
+                self.map[cur_point].next = 1;
                 // if there are no neighbors, this point does not move
                 if neighbors == 0 {
                     continue;
                 }
+                // update bounds because this is a candidate for move
+                moved = true;
+                min_bounds_moving = min_bounds_moving.min_bound(cur_point);
+                max_bounds_moving = max_bounds_moving.max_bound(cur_point);
                 for i in 0..4 {
                     // start at the side matching the current step
                     let i = (i + self.step) % 4;
@@ -95,43 +127,32 @@ impl Map {
                         // side is occupied, try another
                         continue;
                     }
-                    let np = p + MOVES[i];
-                    // propose moving in this direction
-                    // if someone already proposed, the move is cancelled
-                    // (use 4 instead of 0 so that if multiple points propose the same move,
-                    // all are in conflict)
-                    self.proposals[np] = if self.proposals[np] > -1 { 4 } else { i as i8 };
+                    let next_point = cur_point + MOVES[i];
+                    if self.map[next_point].next == 1 {
+                        // if someone is already moving here, this point does not move and
+                        // the other point is pushed back
+                        self.map[cur_point].next = 1;
+                        self.map[next_point].next = 0;
+                        self.map[next_point + MOVES[i]].next = 1;
+                    } else {
+                        // move in this direction
+                        self.map[cur_point].next = 0;
+                        self.map[next_point].next = 1;
+                    }
                     break;
                 }
             }
         }
-        let mut moved = false;
-        let mut min_bounds_moving = Point::new(i16::MAX, i16::MAX);
-        let mut max_bounds_moving = Point::new(0, 0);
-        for y in self.min_bounds_moving.y - 2..=self.max_bounds_moving.y + 2 {
-            for x in self.min_bounds_moving.x - 2..=self.max_bounds_moving.x + 2 {
-                let p = Point::from((x, y));
-                let prop_val = self.proposals[p];
-                if prop_val < 0 {
-                    // no proposal
-                    continue;
-                }
-                self.proposals[p] = -1;
-                if prop_val >= 4 {
-                    // move cancelled
-                    continue;
-                }
-                // move here from the proposed direction
-                let np = p + MOVES[prop_val as usize] * -1;
-                self.map[p] = 1;
-                self.map[np] = 0;
-                moved = true;
-                min_bounds_moving = min_bounds_moving.min_bound(p);
-                max_bounds_moving = max_bounds_moving.max_bound(p);
-            }
-        }
         self.min_bounds_moving = min_bounds_moving;
         self.max_bounds_moving = max_bounds_moving;
+
+        for y in self.min_bounds_moving.y - 1..=self.max_bounds_moving.y + 1 {
+            for x in self.min_bounds_moving.x - 1..=self.max_bounds_moving.x + 1 {
+                let p = Point::from((x, y));
+                self.map[p].current = self.map[p].next;
+            }
+        }
+
         self.min_bounds = self.min_bounds.min_bound(self.min_bounds_moving);
         self.max_bounds = self.max_bounds.max_bound(self.max_bounds_moving);
         self.step += 1;
@@ -150,7 +171,7 @@ pub fn part1_ten_rounds(input: &mut dyn BufRead) -> String {
     let mut spaces = 0;
     for y in map.min_bounds.y..=map.max_bounds.y {
         for x in map.min_bounds.x..=map.max_bounds.x {
-            spaces += 1 - map.map[(x as usize, y as usize)] as usize;
+            spaces += 1 - map.map[(x as usize, y as usize)].current as usize;
         }
     }
 
