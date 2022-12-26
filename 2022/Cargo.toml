@@ -10,6 +10,7 @@ codegen-units = 1
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bit-set = "0.5.3"
 bstr = "1.0.1"
 clap = { version = "4.0.29", features = ["derive"] }
 crossterm = "0.25.0"
