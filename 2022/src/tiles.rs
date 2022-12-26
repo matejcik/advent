@@ -1,7 +1,7 @@
 use std::{
     fmt::Display,
     io::BufRead,
-    ops::{Add, Index, IndexMut, Mul},
+    ops::{Add, Index, IndexMut, Mul, Rem, Sub},
 };
 
 use num_traits::AsPrimitive;
@@ -86,12 +86,29 @@ impl Mul<CoordType> for Point {
     }
 }
 
+impl Sub<Point> for Point {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl Rem<Point> for Point {
+    type Output = Self;
+
+    fn rem(self, rhs: Point) -> Self::Output {
+        Self::new(self.x.rem_euclid(rhs.x), self.y.rem_euclid(rhs.y))
+    }
+}
+
 pub struct Tiles<T> {
     pub entry_len: usize,
     pub line_width: usize,
     pub entries: Vec<T>,
 }
 
+#[derive(Debug)]
 pub struct Stepper {
     start: usize,
     end: usize,
@@ -128,6 +145,20 @@ impl<T: Clone> Tiles<T> {
             entries: vec![initial; (width + 1) * height],
         }
     }
+
+    pub fn reset(&mut self, initial: T) {
+        self.entries.iter_mut().for_each(|e| *e = initial.clone());
+    }
+}
+
+impl<T: Clone> Clone for Tiles<T> {
+    fn clone(&self) -> Self {
+        Self {
+            entry_len: self.entry_len,
+            line_width: self.line_width,
+            entries: self.entries.clone(),
+        }
+    }
 }
 
 impl<T: Copy> Tiles<T> {
@@ -136,6 +167,26 @@ impl<T: Copy> Tiles<T> {
         stepper: impl Iterator<Item = usize> + 'a,
     ) -> impl Iterator<Item = T> + 'a {
         stepper.map(move |idx| self.entries[idx])
+    }
+
+    pub fn region(self, x: usize, y: usize, mx: usize, my: usize) -> Self {
+        assert!(mx <= self.width());
+        assert!(my <= self.height());
+        let mut start = y * self.line_width + x;
+        let step = self.line_width;
+        let width = mx - x;
+        let height = my - y;
+        let mut entries = Vec::with_capacity(width * height);
+        for _ in 0..height {
+            let end = start + width;
+            entries.extend_from_slice(&self.entries[start..end]);
+            start += step;
+        }
+        Self {
+            line_width: width,
+            entry_len: width,
+            entries,
+        }
     }
 
     pub fn copy(&mut self, x: usize, y: usize, other: &Self) {
@@ -160,11 +211,23 @@ impl<T> Tiles<T> {
         self.entries.len() / self.line_width
     }
 
+    pub fn size(&self) -> Point {
+        Point::new(self.width() as CoordType, self.height() as CoordType)
+    }
+
     pub fn contains(&self, point: Point) -> bool {
         point.x >= 0
             && point.y >= 0
             && point.x < self.width() as CoordType
             && point.y < self.height() as CoordType
+    }
+
+    pub fn get(&self, point: Point) -> Option<&T> {
+        if self.contains(point) {
+            Some(&self.entries[self.index_for(point)])
+        } else {
+            None
+        }
     }
 
     pub fn index_for(&self, point: Point) -> usize {
