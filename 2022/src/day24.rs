@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashSet, VecDeque},
-    hash::Hash,
-    io::BufRead,
-};
+use std::io::BufRead;
 
 use crate::{
     tiles::{Point, Tiles},
@@ -10,6 +6,8 @@ use crate::{
 };
 
 const MAP_SIZE: usize = 140 * 30;
+
+const ELF_BIT: u8 = 0b1_0000;
 
 fn convert_map(input: &mut dyn BufRead) -> (Tiles<u8>, Point, Point) {
     let input = Tiles::load(input, MAP_SIZE);
@@ -20,7 +18,7 @@ fn convert_map(input: &mut dyn BufRead) -> (Tiles<u8>, Point, Point) {
         .iter()
         .find(|c| input.entries[*c] == b'.')
         .unwrap();
-    let start = input.coords_for(start_idx) - Point::new(1, 1);
+    let start = input.coords_for(start_idx) - Point::new(1, 0);
     let end_idx = input
         .rows_steppers()
         .last()
@@ -28,7 +26,7 @@ fn convert_map(input: &mut dyn BufRead) -> (Tiles<u8>, Point, Point) {
         .iter()
         .find(|c| input.entries[*c] == b'.')
         .unwrap();
-    let end = input.coords_for(end_idx) - Point::new(1, 1);
+    let end = input.coords_for(end_idx) - Point::new(1, 2);
     let entries = input
         .entries
         .iter()
@@ -48,22 +46,17 @@ fn convert_map(input: &mut dyn BufRead) -> (Tiles<u8>, Point, Point) {
     (map, start, end)
 }
 
-fn printmap(map: &Tiles<u8>, elves: &HashSet<Point>) {
+fn printmap(map: &Tiles<u8>) {
     for y in 0..map.height() {
         for x in 0..map.width() {
             let entry = map[(x, y)];
             let ch = match entry {
-                0 => {
-                    if elves.contains(&Point::from((x, y))) {
-                        'E'
-                    } else {
-                        '.'
-                    }
-                }
+                0 => '.',
                 0b0001 => 'v',
                 0b0010 => '>',
                 0b0100 => '^',
                 0b1000 => '<',
+                ELF_BIT => 'E',
                 x if x.count_ones() == 2 => '2',
                 x if x.count_ones() == 3 => '3',
                 x if x.count_ones() == 4 => '4',
@@ -76,7 +69,7 @@ fn printmap(map: &Tiles<u8>, elves: &HashSet<Point>) {
     println!("---");
 }
 
-fn step(map: &Tiles<u8>, newmap: &mut Tiles<u8>) {
+fn step(spawn: Point, map: &Tiles<u8>, newmap: &mut Tiles<u8>) {
     for y in 0..map.height() {
         for x in 0..map.width() {
             let p = Point::from((x, y));
@@ -88,6 +81,27 @@ fn step(map: &Tiles<u8>, newmap: &mut Tiles<u8>) {
                 }
             }
         }
+    }
+
+    for y in 0..map.height() {
+        for x in 0..map.width() {
+            let p = Point::from((x, y));
+            if map[p] & ELF_BIT == 0 {
+                continue;
+            }
+            if matches!(newmap.get(p), Some(0)) {
+                newmap[p] = ELF_BIT;
+            }
+            for dir in Point::CARDINAL_DIRECTIONS.iter() {
+                let np = Point::from((x, y)) + *dir;
+                if matches!(newmap.get(np), Some(0)) {
+                    newmap[np] = ELF_BIT;
+                }
+            }
+        }
+    }
+    if newmap[spawn] == 0 {
+        newmap[spawn] = ELF_BIT;
     }
 }
 
@@ -103,52 +117,38 @@ fn part2_forgetful_elves(input: &mut dyn BufRead) -> String {
     routefinder(map, start, destinations).to_string()
 }
 
-fn routefinder(mut map: Tiles<u8>, mut start: Point, destinations: &[Point]) -> usize {
+fn routefinder(mut map: Tiles<u8>, mut spawn: Point, destinations: &[Point]) -> usize {
     let mut newmap = Tiles::new(map.width(), map.height(), 0);
-    let mut elves = HashSet::with_capacity(1000);
-    let mut new_elves = HashSet::with_capacity(1000);
-    elves.insert(start);
-
     let mut destinations = destinations.iter().copied().peekable();
 
     let mut steps = 0;
-    'outer: loop {
+    loop {
         steps += 1;
         newmap.reset(0);
-        step(&map, &mut newmap);
+        step(spawn, &map, &mut newmap);
         (map, newmap) = (newmap, map);
-        'inner: for elf in elves.iter() {
-            if *elf == start
-                || elf == destinations.peek().unwrap()
-                || matches!(map.get(*elf), Some(0))
-            {
-                new_elves.insert(*elf);
-            }
-            for n in elf.neighbors() {
-                if n == *destinations.peek().unwrap() {
-                    destinations.next().unwrap();
-                    if destinations.peek().is_none() {
-                        break 'outer;
-                    } else {
-                        new_elves.clear();
-                        new_elves.insert(n);
-                        start = n;
-                        println!("reached destination");    
-                        break 'inner;
-                    }
-                } else if n == start || matches!(map.get(n), Some(0)) {
-                    new_elves.insert(n);
-                }
-            }
-        }
         // println!("step {}:", steps);
-        // printmap(&map, &new_elves);
-        if new_elves.is_empty() {
-            panic!("no elves left :(")
+        // printmap(&map);
+        let dest = destinations.peek().unwrap();
+        if map[*dest] == ELF_BIT {
+            let next_spawn = destinations.next().unwrap();
+            // clear elves from the map
+            map.entries.iter_mut().for_each(|e| *e &= !ELF_BIT);
+            // count one additional step to get to the actual destination outside the map
+            steps += 1;
+            // if no next destination, we're done
+            if destinations.peek().is_none() {
+                break;
+            }
+            // run the step
+            newmap.reset(0);
+            step(next_spawn, &map, &mut newmap);
+            (map, newmap) = (newmap, map);
+            // clear a potential spawned elf
+            map[next_spawn] &= !ELF_BIT;
+            // continue up to next destination
+            spawn = next_spawn;
         }
-
-        elves.clear();
-        (elves, new_elves) = (new_elves, elves);
     }
 
     steps
