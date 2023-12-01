@@ -7,6 +7,7 @@ name = "advent2022"
 version = "0.1.0"
 dependencies = [
  "bit-set",
+ "bit-vec",
  "bstr 1.0.1",
  "clap",
  "crossterm",

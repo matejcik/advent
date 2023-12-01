@@ -1,6 +1,7 @@
 use std::io::BufRead;
 
 use bit_set::BitSet;
+use bit_vec::BitVec;
 
 use crate::{
     tiles::{Point, Tiles},
@@ -8,64 +9,48 @@ use crate::{
 };
 
 struct Blizzards {
-    elves: Tiles<bool>,
-    new_elves: Tiles<bool>,
-    blizzards_up: Vec<BitSet>,
-    blizzards_down: Vec<BitSet>,
-    blizzards_left: Vec<BitSet>,
-    blizzards_right: Vec<BitSet>,
+    width: usize,
+    height: usize,
+    elves: Vec<BitVec>,
+    blizzards_up: Vec<BitVec>,
+    blizzards_down: Vec<BitVec>,
+    blizzards_left: Vec<BitVec>,
+    blizzards_right: Vec<BitVec>,
     steps: usize,
 }
 
 impl Blizzards {
-    pub fn blizzard_bits(&self, p: Point) -> u8 {
-        if !self.elves.contains(p) {
-            return 0b10000;
-        }
-        let x = p.x as usize;
-        let y = p.y as usize;
-        let down = self.blizzards_down[x].contains(
-            (y as isize - self.steps as isize).rem_euclid(self.elves.height() as isize) as usize,
-        );
-        let up = self.blizzards_up[x].contains((y + self.steps) % self.elves.height());
-        let right = self.blizzards_right[y].contains(
-            (x as isize - self.steps as isize).rem_euclid(self.elves.width() as isize) as usize,
-        );
-        let left = self.blizzards_left[y].contains((x + self.steps) % self.elves.width());
-        (up as u8) << 3 | (down as u8) << 2 | (left as u8) << 1 | right as u8
-    }
-
-    pub fn has_blizzard(&self, p: Point) -> bool {
-        self.blizzard_bits(p) != 0
-    }
-
     pub fn has_elf(&self, p: Point) -> bool {
-        self.elves.get(p).copied().unwrap_or(false)
+        self.elves
+            .get(p.y as usize)
+            .map(|v| v.get(p.x as usize).unwrap_or(false))
+            .unwrap_or(false)
     }
 
     pub fn new(input: &Tiles<u8>) -> Self {
         let width = input.width() - 2;
         let height = input.height() - 2;
-        let elves = Tiles::new(width, height, false);
+        let elves = vec![BitVec::with_capacity(width); height];
         let new_elves = elves.clone();
-        let mut blizzards_up = vec![BitSet::with_capacity(height); width];
-        let mut blizzards_down = vec![BitSet::with_capacity(height); width];
-        let mut blizzards_left = vec![BitSet::with_capacity(width); height];
-        let mut blizzards_right = vec![BitSet::with_capacity(width); height];
+        let mut blizzards_up = vec![BitVec::with_capacity(height); width];
+        let mut blizzards_down = vec![BitVec::with_capacity(height); width];
+        let mut blizzards_left = vec![BitVec::with_capacity(width); height];
+        let mut blizzards_right = vec![BitVec::with_capacity(width); height];
         for y in 1..input.height() - 1 {
             for x in 1..input.width() - 1 {
                 match input[(x, y)] {
-                    b'>' => blizzards_right[y - 1].insert(x - 1),
-                    b'<' => blizzards_left[y - 1].insert(x - 1),
-                    b'^' => blizzards_up[x - 1].insert(y - 1),
-                    b'v' => blizzards_down[x - 1].insert(y - 1),
-                    _ => false,
+                    b'>' => blizzards_right[y - 1].set(x - 1, true),
+                    b'<' => blizzards_left[y - 1].set(x - 1, true),
+                    b'^' => blizzards_up[x - 1].set(y - 1, true),
+                    b'v' => blizzards_down[x - 1].set(y - 1, true),
+                    _ => (),
                 };
             }
         }
         Self {
             elves,
-            new_elves,
+            width,
+            height,
             blizzards_up,
             blizzards_down,
             blizzards_left,
@@ -75,7 +60,7 @@ impl Blizzards {
     }
 
     pub fn step(&mut self, spawn: Point) {
-        self.new_elves.entries.fill(false);
+        new_elves = vec![BitVec::with_capacity(self.width); self.height];
         self.steps += 1;
         for (idx, _) in self.elves.entries.iter().enumerate().filter(|(_, &v)| v) {
             let p = self.elves.coords_for(idx);

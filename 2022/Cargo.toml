@@ -11,6 +11,7 @@ codegen-units = 1
 
 [dependencies]
 bit-set = "0.5.3"
+bit-vec = "0.6.3"
 bstr = "1.0.1"
 clap = { version = "4.0.29", features = ["derive"] }
 crossterm = "0.25.0"
