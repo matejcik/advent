@@ -15,6 +15,17 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    for (0..25) |n| {
+        const filename = b.fmt("src/{:0>2}.zig", .{n});
+        std.fs.cwd().access(filename, .{}) catch continue;
+        _ = b.addStaticLibrary(.{
+            .name = b.fmt("2023_{:0>2}", .{n}),
+            .root_source_file = .{ .path = filename },
+            .target = target,
+            .optimize = optimize,
+        });
+    }
+
     // const lib = b.addStaticLibrary(.{
     //     .name = "2023",
     //     // In this case the main source file is merely a path, however, in more

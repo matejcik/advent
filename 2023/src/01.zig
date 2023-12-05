@@ -1,11 +1,12 @@
 const advent = @import("advent.zig");
 const std = @import("std");
 
-pub fn part1(reader: std.io.StreamSource.Reader) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+    _ = alloc;
     var first_digit: u8 = 0;
     var last_digit: u8 = 0;
     var total: u32 = 0;
-    while (reader.readByte()) |byte| {
+    for (data) |byte| {
         switch (byte) {
             '1'...'9' => {
                 if (first_digit == 0) {
@@ -20,13 +21,8 @@ pub fn part1(reader: std.io.StreamSource.Reader) !void {
             },
             else => {},
         }
-    } else |err| {
-        switch (err) {
-            error.EndOfStream => {},
-            else => return err,
-        }
     }
-    std.debug.print("Part 1: {}\n", .{total});
+    std.debug.print("Day 1 part 1: {}\n", .{total});
 }
 
 const TRIE_SIZE = 10000;
@@ -300,17 +296,13 @@ test "line total with overlapping word ends" {
     try expect(try findLineTotal("eighthree") == 83);
 }
 
-pub fn part2(reader: std.io.StreamSource.Reader) !void {
-    var linebuf: [256]u8 = undefined;
+pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+    _ = alloc;
     var total: u32 = 0;
 
-    while (reader.readUntilDelimiter(&linebuf, '\n')) |line| {
+    var iter = std.mem.tokenizeScalar(u8, data, '\n');
+    while (iter.next()) |line| {
         total += try findLineTotal(line);
-    } else |err| {
-        switch (err) {
-            error.EndOfStream => {},
-            else => return err,
-        }
     }
 
     // var first_digit: ?Match = null;
@@ -344,5 +336,5 @@ pub fn part2(reader: std.io.StreamSource.Reader) !void {
     //         else => return err,
     //     }
     // }
-    std.debug.print("Part 2: {}\n", .{total});
+    std.debug.print("Day 1 part 2: {}\n", .{total});
 }
