@@ -14,3 +14,11 @@ pub fn openInput(srcInfo: std.builtin.SourceLocation) !std.io.AnyReader {
     const input_path = src_root ++ "/inputs/" ++ basename ++ ".txt";
     return try input_path.open(.{ .read = true }).reader();
 }
+
+pub fn sliceEql(comptime T: type, a: []const T, b: []const T) bool {
+    if (a.len != b.len) return false;
+    for (a, b) |a_elem, b_elem| {
+        if (!std.meta.eql(a_elem, b_elem)) return false;
+    }
+    return true;
+}

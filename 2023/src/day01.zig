@@ -1,4 +1,4 @@
-const advent = @import("advent.zig");
+const advent = @import("advent");
 const std = @import("std");
 
 pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {

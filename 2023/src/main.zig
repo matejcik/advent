@@ -3,11 +3,11 @@ const std = @import("std");
 const MAX_SIZE: usize = 1 * 1024 * 1024;
 
 const PARTS = [_]type{
-    @import("01.zig"),
-    @import("02.zig"),
-    @import("03.zig"),
-    @import("04.zig"),
-    @import("05.zig"),
+    @import("day01"),
+    @import("day02"),
+    @import("day03"),
+    @import("day04"),
+    @import("day05"),
 };
 
 fn runSingle(comptime n: u32, comptime solver_impl: type) !void {
@@ -15,12 +15,13 @@ fn runSingle(comptime n: u32, comptime solver_impl: type) !void {
     const input_file = try std.fs.cwd().openFile("inputs/" ++ file_stem ++ ".txt", .{ .mode = .read_only });
     var source = std.io.StreamSource{ .file = input_file };
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
-    defer alloc.deinit();
+    defer _ = alloc.deinit();
     const data: []const u8 = try source.reader().readAllAlloc(alloc.allocator(), MAX_SIZE);
+    defer alloc.allocator().free(data);
 
-    try solver_impl.part1(data);
+    try solver_impl.part1(data, alloc.allocator());
     try source.seekTo(0);
-    try solver_impl.part2(data);
+    try solver_impl.part2(data, alloc.allocator());
 }
 
 pub fn main() !void {

@@ -15,15 +15,22 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    var exe = b.addExecutable(.{
+        .name = "2023",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const advent_mod = b.createModule(.{ .source_file = .{ .path = "src/advent.zig" } });
+
     for (0..25) |n| {
-        const filename = b.fmt("src/{:0>2}.zig", .{n});
+        const filename = b.fmt("src/day{:0>2}.zig", .{n});
         std.fs.cwd().access(filename, .{}) catch continue;
-        _ = b.addStaticLibrary(.{
-            .name = b.fmt("2023_{:0>2}", .{n}),
-            .root_source_file = .{ .path = filename },
-            .target = target,
-            .optimize = optimize,
-        });
+        const day_mod = b.createModule(.{ .source_file = .{ .path = filename }, .dependencies = &.{
+            .{ .name = "advent", .module = advent_mod },
+        } });
+        exe.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
     }
 
     // const lib = b.addStaticLibrary(.{
@@ -39,13 +46,6 @@ pub fn build(b: *std.Build) void {
     // // location when the user invokes the "install" step (the default step when
     // // running `zig build`).
     // b.installArtifact(lib);
-
-    const exe = b.addExecutable(.{
-        .name = "2023",
-        .root_source_file = .{ .path = "src/main.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
