@@ -8,6 +8,8 @@ const PARTS = [_]type{
     @import("day03"),
     @import("day04"),
     @import("day05"),
+    @import("day06"),
+    @import("day07"),
 };
 
 fn runSingle(comptime n: u32, comptime solver_impl: type) !void {
@@ -28,11 +30,4 @@ pub fn main() !void {
     inline for (PARTS, 0..) |part, n| {
         try runSingle(n + 1, part);
     }
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.std.mem.Allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
