@@ -278,8 +278,8 @@ fn findLineTotal(line: []const u8) !u32 {
     const first = first_digit orelse return error.NoMatch;
     const line_total = first.value * 10 + last_digit.value;
 
-    printMatchRange(line, &first, &last_digit);
-    std.debug.print("  {}\n", .{line_total});
+    //printMatchRange(line, &first, &last_digit);
+    //std.debug.print("  {}\n", .{line_total});
     return line_total;
 }
 
