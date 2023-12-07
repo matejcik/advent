@@ -14,7 +14,7 @@ const PARTS = [_]type{
 
 fn runSingle(comptime n: u32, comptime solver_impl: type) !void {
     const file_stem = std.fmt.comptimePrint("{:0>2}", .{n});
-    const input_file = try std.fs.cwd().openFile("inputs/" ++ file_stem ++ ".txt", .{ .mode = .read_only });
+    const input_file = try std.fs.cwd().openFile("input/" ++ file_stem ++ ".txt", .{ .mode = .read_only });
     var source = std.io.StreamSource{ .file = input_file };
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = alloc.deinit();
