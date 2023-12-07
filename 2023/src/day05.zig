@@ -3,7 +3,7 @@ const print = std.debug.print;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const ArrayList = std.ArrayList;
-const sliceEql = @import("advent").sliceEql;
+const sliceEql = @import("advent.zig").sliceEql;
 
 const Range = struct {
     start: isize,
@@ -42,26 +42,6 @@ const Range = struct {
             .{ .start = self.start, .end = pivot - 1 },
             .{ .start = pivot, .end = self.end },
         };
-    }
-
-    pub fn leftOf(self: Range, pivot: isize) ?Range {
-        if (self.end < pivot) {
-            return self;
-        }
-        if (self.start > pivot) {
-            return null;
-        }
-        return Range{ .start = self.start, .end = pivot - 1 };
-    }
-
-    pub fn rightOf(self: Range, pivot: isize) ?Range {
-        if (self.start > pivot) {
-            return self;
-        }
-        if (self.end < pivot) {
-            return null;
-        }
-        return Range{ .start = pivot + 1, .end = self.end };
     }
 
     pub fn contains(self: Range, other: Range) bool {
@@ -248,46 +228,51 @@ pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
     print("Day 5 part 1: {}\n", .{min_location});
 }
 
+const TEST_DATA =
+    \\seeds: 79 14 55 13
+    \\
+    \\seed-to-soil map:
+    \\50 98 2
+    \\52 50 48
+    \\
+    \\soil-to-fertilizer map:
+    \\0 15 37
+    \\37 52 2
+    \\39 0 15
+    \\
+    \\fertilizer-to-water map:
+    \\49 53 8
+    \\0 11 42
+    \\42 0 7
+    \\57 7 4
+    \\
+    \\water-to-light map:
+    \\88 18 7
+    \\18 25 70
+    \\
+    \\light-to-temperature map:
+    \\45 77 23
+    \\81 45 19
+    \\68 64 13
+    \\
+    \\temperature-to-humidity map:
+    \\0 69 1
+    \\1 0 69
+    \\
+    \\humidity-to-location map:
+    \\60 56 37
+    \\56 93 4
+    \\
+;
+
 test "part1 test data" {
-    const test_data =
-        \\seeds: 79 14 55 13
-        \\
-        \\seed-to-soil map:
-        \\50 98 2
-        \\52 50 48
-        \\
-        \\soil-to-fertilizer map:
-        \\0 15 37
-        \\37 52 2
-        \\39 0 15
-        \\
-        \\fertilizer-to-water map:
-        \\49 53 8
-        \\0 11 42
-        \\42 0 7
-        \\57 7 4
-        \\
-        \\water-to-light map:
-        \\88 18 7
-        \\18 25 70
-        \\
-        \\light-to-temperature map:
-        \\45 77 23
-        \\81 45 19
-        \\68 64 13
-        \\
-        \\temperature-to-humidity map:
-        \\0 69 1
-        \\1 0 69
-        \\
-        \\humidity-to-location map:
-        \\60 56 37
-        \\56 93 4
-        \\
-    ;
-    var alloc = std.heap.GeneralPurposeAllocator(.{}){};
-    const result = try getMinLocation(test_data, alloc.allocator());
+    const result = try getMinLocation(TEST_DATA, std.testing.allocator);
     try expectEqual(result, 35);
+}
+
+test "part2 test data" {
+    const result = try getMinLocation2(TEST_DATA, std.testing.allocator);
+    try expectEqual(result, 46);
 }
 
 pub fn getMinLocation2(data: []const u8, alloc: std.mem.Allocator) !isize {
@@ -328,28 +313,35 @@ pub fn getMinLocation2(data: []const u8, alloc: std.mem.Allocator) !isize {
         var s: usize = 0; // seed index
         var m: usize = 0; // mapping index
         while (s < cur.items.len) {
-            var sr = cur.items[s];
+            var sr = &cur.items[s];
             if (m >= section.items.len) {
                 // no more mappings, just copy the rest of the seeds
-                try next.append(sr);
+                try next.append(sr.*);
                 s += 1;
             } else if (sr.start < section.items[m].range.start) {
                 // seed range starts before mapping range
                 const split = sr.splitAt(section.items[m].range.start);
                 try next.append(split[0].?); // we know the range starts left of the split point so this will always be set
                 if (split[1]) |r| {
-                    sr = r;
+                    sr.* = r;
                 } else {
                     s += 1;
                 }
             } else {
                 if (sr.start <= section.items[m].range.end) {
                     // seed range starts somewhere inside the mapping range
-                    const mapped = section.items[m].mapRange(sr).?;
+                    const split = sr.splitAt(section.items[m].range.end + 1);
+                    const mapped = section.items[m].mapRange(split[0].?).?;
                     try next.append(mapped);
+                    if (split[1]) |r| {
+                        sr.* = r;
+                    } else {
+                        s += 1;
+                    }
+                } else {
+                    // go to the next mapping
+                    m += 1;
                 }
-                // go to the next mapping
-                m += 1;
             }
         }
 

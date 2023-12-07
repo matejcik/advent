@@ -22,15 +22,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const advent_mod = b.createModule(.{ .source_file = .{ .path = "src/advent.zig" } });
+    var exe_unit_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
 
     for (0..25) |n| {
         const filename = b.fmt("src/day{:0>2}.zig", .{n});
         std.fs.cwd().access(filename, .{}) catch continue;
-        const day_mod = b.createModule(.{ .source_file = .{ .path = filename }, .dependencies = &.{
-            .{ .name = "advent", .module = advent_mod },
-        } });
+        const day_mod = b.createModule(.{ .source_file = .{ .path = filename } });
         exe.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
+        exe_unit_tests.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
     }
 
     // const lib = b.addStaticLibrary(.{
@@ -77,19 +80,13 @@ pub fn build(b: *std.Build) void {
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/root.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
+    // const lib_unit_tests = b.addTest(.{
+    //     .root_source_file = .{ .path = "src/main.zig" },
+    //     .target = target,
+    //     .optimize = optimize,
+    // });
 
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
-
-    const exe_unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
+    // const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
@@ -97,6 +94,6 @@ pub fn build(b: *std.Build) void {
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
+    // test_step.dependOn(&run_lib_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
 }
