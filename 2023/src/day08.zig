@@ -2,8 +2,9 @@ const std = @import("std");
 const print = std.debug.print;
 
 const Node = struct {
-    children: [2]*const Node,
+    children: [2]*Node,
     name: []const u8,
+    zloop_steps: usize,
 };
 
 const Graph = struct {
@@ -58,36 +59,86 @@ const Graph = struct {
         return steps;
     }
 
+    fn zloopInit(self: *Graph) void {
+        var iter = self.map.valueIterator();
+        while (iter.next()) |val| {
+            val.zloop_steps = 0;
+        }
+    }
+
+    const Zloop = struct {
+        cursor: usize,
+        loop: usize,
+
+        fn merge(self: Zloop, other: Zloop) Zloop {
+            std.testing.expectEqual(self.loop, self.cursor) catch unreachable;
+            std.testing.expectEqual(other.loop, other.cursor) catch unreachable;
+
+            const lcm = self.loop * (other.loop / std.math.gcd(self.loop, other.loop));
+            return Zloop{
+                .cursor = lcm,
+                .loop = lcm,
+            };
+
+            // var bigger = if (self.cursor < other.cursor) other else self;
+            // var smaller = if (self.cursor < other.cursor) self else other;
+            // while (bigger.cursor != smaller.cursor) {
+            //     smaller.cursor += smaller.loop;
+            //     if (smaller.cursor > bigger.cursor) {
+            //         const tmp = bigger;
+            //         bigger = smaller;
+            //         smaller = tmp;
+            //     }
+            // }
+            // const loop_lcm = bigger.loop * (smaller.loop / std.math.gcd(bigger.loop, smaller.loop));
+            // return Zloop{
+            //     .cursor = smaller.cursor,
+            //     .loop = loop_lcm,
+            // };
+        }
+    };
+
+    fn zloopFrom(self: *Graph, start: *Node) Zloop {
+        var steps: usize = 0;
+        var node = start;
+        var first_z: usize = 0;
+        self.zloopInit();
+        outer: while (true) {
+            for (self.directions) |d| {
+                steps += 1;
+                const idx: usize = if (d == 'L') 0 else 1;
+                node = node.children[idx];
+                if (node.zloop_steps != 0 and node.zloop_steps % self.directions.len == steps % self.directions.len) {
+                    break :outer;
+                }
+                node.zloop_steps = steps;
+                if (node.name[2] == 'Z' and first_z == 0) {
+                    first_z = steps;
+                }
+            }
+        }
+        return Zloop{
+            .cursor = first_z,
+            .loop = steps - first_z,
+        };
+    }
+
     fn ghostWalk(self: *Graph, alloc: std.mem.Allocator) !usize {
-        var ghosts = try std.ArrayList(*const Node).initCapacity(alloc, self.map.capacity());
+        var ghosts = try std.ArrayList(Zloop).initCapacity(alloc, self.map.capacity());
         defer ghosts.deinit();
 
         // get all starting nodes
         var values_iter = self.map.valueIterator();
         while (values_iter.next()) |val| {
             if (val.name[2] == 'A') {
-                try ghosts.append(val);
+                ghosts.appendAssumeCapacity(self.zloopFrom(val));
             }
         }
-
-        var steps: usize = 0;
-        outer: while (true) {
-            inner: for (self.directions) |d| {
-                steps += 1;
-                const idx: usize = if (d == 'L') 0 else 1;
-                for (0..ghosts.items.len) |i| {
-                    ghosts.items[i] = ghosts.items[i].children[idx];
-                }
-                // check if all ghosts are at the end
-                for (ghosts.items) |ghost| {
-                    if (ghost.name[2] != 'Z') {
-                        continue :inner;
-                    }
-                }
-                break :outer;
-            }
+        var result = ghosts.items[0];
+        for (ghosts.items[1..]) |g| {
+            result = result.merge(g);
         }
-        return steps;
+        return result.cursor;
     }
 };
 
