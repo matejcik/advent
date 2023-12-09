@@ -11,6 +11,7 @@ const PARTS = [_]type{
     @import("day06"),
     @import("day07"),
     @import("day08"),
+    @import("day09"),
 };
 
 fn runSingle(comptime n: u32, comptime solver_impl: type) !void {
