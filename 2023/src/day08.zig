@@ -181,16 +181,16 @@ test "testdata for part 2" {
     try std.testing.expectEqual(steps, 6);
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     var graph = try Graph.build(data, alloc);
     defer graph.deinit();
 
-    print("Day 8 part 1: {}\n", .{graph.walkPart1()});
+    return std.fmt.bufPrint(result_buf, "{}", .{graph.walkPart1()});
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     var graph = try Graph.build(data, alloc);
     defer graph.deinit();
 
-    print("Day 8 part 2: {}\n", .{try graph.ghostWalk(alloc)});
+    return std.fmt.bufPrint(result_buf, "{}", .{try graph.ghostWalk(alloc)});
 }

@@ -36,6 +36,13 @@ pub fn build(b: *std.Build) void {
         exe_unit_tests.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
     }
 
+    const clap = b.dependency("clap", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.addModule("clap", clap.module("clap"));
+    //exe.linkLibrary(clap.artifact("clap"));
+
     // const lib = b.addStaticLibrary(.{
     //     .name = "2023",
     //     // In this case the main source file is merely a path, however, in more

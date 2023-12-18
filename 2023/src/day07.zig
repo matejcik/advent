@@ -97,12 +97,12 @@ pub fn cardTotal(data: []const u8, alloc: std.mem.Allocator, joker: bool) !usize
     return total;
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     const total = try cardTotal(data, alloc, false);
-    std.debug.print("Day 7 part 1: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     const total = try cardTotal(data, alloc, true);
-    std.debug.print("Day 7 part 2: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }

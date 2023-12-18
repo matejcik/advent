@@ -55,27 +55,27 @@ fn Grid(comptime T: type) type {
 
     return struct {
         data: GridData,
-        _width: usize, // full width including line separators
+        stride: usize, // full width including line separators
         width: usize, // width of the grid
         height: usize,
 
         pub fn new(data: GridData, linesep: T) Grid(T) {
             var grid = Grid(T){
                 .data = data,
-                ._width = 0,
+                .stride = 0,
                 .width = 0,
                 .height = 0,
             };
             const view_ = data.view();
             const sep_index = std.mem.indexOfScalar(T, view_, linesep);
-            if (sep_index) |_width| {
-                grid._width = _width + 1;
-                grid.width = _width;
+            if (sep_index) |stride| {
+                grid.stride = stride + 1;
+                grid.width = stride;
             } else {
-                grid._width = view_.len;
+                grid.stride = view_.len;
                 grid.width = view_.len;
             }
-            grid.height = view_.len / grid._width;
+            grid.height = view_.len / grid.stride;
             return grid;
         }
 
@@ -88,8 +88,8 @@ fn Grid(comptime T: type) type {
 
         pub fn indexToPoint(self: Grid(T), index: usize) Point {
             return Point{
-                .x = @intCast(index % self._width),
-                .y = @intCast(index / self._width),
+                .x = @intCast(index % self.stride),
+                .y = @intCast(index / self.stride),
             };
         }
 
@@ -101,7 +101,7 @@ fn Grid(comptime T: type) type {
             if (!self.contains(p)) {
                 return null;
             }
-            return @intCast(p.y * @as(isize, @intCast(self._width)) + p.x);
+            return @intCast(p.y * @as(isize, @intCast(self.stride)) + p.x);
         }
 
         pub fn point(self: Grid(T), p: Point) ?T {
@@ -241,7 +241,7 @@ fn partNumbersAround(grid: Grid(u8), idx: usize) NumResult {
     return result;
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
 
     const grid = Grid(u8).new(.{ .immutable = data }, '\n');
@@ -253,10 +253,10 @@ pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
         }
     }
 
-    print("Day 3 part 1: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
 
     const grid = Grid(u8).new(.{ .immutable = data }, '\n');
@@ -270,5 +270,5 @@ pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
         }
     }
 
-    print("Day 3 part 2: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }

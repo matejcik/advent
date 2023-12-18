@@ -223,9 +223,9 @@ pub fn getMinLocation(data: []const u8, alloc: std.mem.Allocator) !isize {
     return min_location;
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     const min_location = try getMinLocation(data, alloc);
-    print("Day 5 part 1: {}\n", .{min_location});
+    return std.fmt.bufPrint(result_buf, "{}", .{min_location});
 }
 
 const TEST_DATA =
@@ -356,7 +356,7 @@ pub fn getMinLocation2(data: []const u8, alloc: std.mem.Allocator) !isize {
     return cur.items[0].start;
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     const min_location = try getMinLocation2(data, alloc);
-    print("Day 5 part 2: {}\n", .{min_location});
+    return std.fmt.bufPrint(result_buf, "{}", .{min_location});
 }

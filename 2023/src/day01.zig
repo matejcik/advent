@@ -1,7 +1,7 @@
 const advent = @import("advent");
 const std = @import("std");
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
     var first_digit: u8 = 0;
     var last_digit: u8 = 0;
@@ -22,7 +22,7 @@ pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
             else => {},
         }
     }
-    std.debug.print("Day 1 part 1: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
 
 const TRIE_SIZE = 10000;
@@ -296,7 +296,7 @@ test "line total with overlapping word ends" {
     try expect(try findLineTotal("eighthree") == 83);
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
     var total: u32 = 0;
 
@@ -336,5 +336,5 @@ pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
     //         else => return err,
     //     }
     // }
-    std.debug.print("Day 1 part 2: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }

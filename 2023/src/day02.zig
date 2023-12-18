@@ -87,13 +87,13 @@ fn part1Total(data: []const u8) !u32 {
     return total;
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
     const total = try part1Total(data);
-    print("Day 2 part 1: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     _ = alloc;
     var total: u32 = 0;
     var iter = std.mem.tokenizeScalar(u8, data, '\n');
@@ -102,5 +102,5 @@ pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
         total += game.power();
     }
 
-    print("Day 2 part 2: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }

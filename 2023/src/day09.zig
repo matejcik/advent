@@ -45,7 +45,7 @@ test "extrapolation examples" {
     try std.testing.expectEqual(nextElem(&ex3), 68);
 }
 
-pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     var linebuf = std.ArrayList(isize).init(alloc);
     defer linebuf.deinit();
 
@@ -61,10 +61,10 @@ pub fn part1(data: []const u8, alloc: std.mem.Allocator) !void {
         total += nextElem(linebuf.items);
     }
 
-    print("Day 9 part 1: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
 
-pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
+pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
     var linebuf = std.ArrayList(isize).init(alloc);
     defer linebuf.deinit();
 
@@ -80,5 +80,5 @@ pub fn part2(data: []const u8, alloc: std.mem.Allocator) !void {
         total += nextElem(linebuf.items);
     }
 
-    print("Day 9 part 2: {}\n", .{total});
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
 }
