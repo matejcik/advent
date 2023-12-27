@@ -4,6 +4,13 @@ pub const Point = struct {
     x: isize,
     y: isize,
 
+    pub fn new(x: isize, y: isize) Point {
+        return Point{
+            .x = x,
+            .y = y,
+        };
+    }
+
     pub fn add(self: Point, other: Point) Point {
         return Point{
             .x = self.x + other.x,
@@ -18,20 +25,62 @@ pub const Point = struct {
         };
     }
 
-    pub const UP = Point{ .x = 0, .y = -1 };
-    pub const DOWN = Point{ .x = 0, .y = 1 };
-    pub const LEFT = Point{ .x = -1, .y = 0 };
-    pub const RIGHT = Point{ .x = 1, .y = 0 };
+    pub fn step(self: Point, dir: Direction) Point {
+        return self.add(dir.dir);
+    }
 
-    pub const DIRS_AROUND = [_]Point{
-        Point.UP.add(Point.LEFT),
-        Point.UP,
-        Point.UP.add(Point.RIGHT),
-        Point.LEFT,
-        Point.RIGHT,
-        Point.DOWN.add(Point.LEFT),
-        Point.DOWN,
-        Point.DOWN.add(Point.RIGHT),
+    pub fn back(self: Point, dir: Direction) Point {
+        return self.step(dir.back());
+    }
+};
+
+pub const Direction = struct {
+    dir: Point,
+
+    pub fn new(x: isize, y: isize) Direction {
+        return Direction{
+            .dir = Point.new(x, y),
+        };
+    }
+
+    pub fn add(self: Direction, other: Direction) Direction {
+        return Direction{
+            .dir = self.dir.add(other.dir),
+        };
+    }
+
+    pub fn sub(self: Direction, other: Direction) Direction {
+        return Direction{
+            .dir = self.dir.sub(other.dir),
+        };
+    }
+
+    pub fn back(self: Direction) Direction {
+        return Direction.ZERO.sub(self);
+    }
+
+    pub const ZERO = Direction.new(0, 0);
+    pub const UP = Direction.new(0, -1);
+    pub const DOWN = Direction.new(0, 1);
+    pub const LEFT = Direction.new(-1, 0);
+    pub const RIGHT = Direction.new(1, 0);
+
+    pub const ORTHO = [_]Direction{
+        Direction.UP,
+        Direction.RIGHT,
+        Direction.DOWN,
+        Direction.LEFT,
+    };
+
+    pub const AROUND = [_]Direction{
+        Direction.UP.add(Direction.LEFT),
+        Direction.UP,
+        Direction.UP.add(Direction.RIGHT),
+        Direction.RIGHT,
+        Direction.DOWN.add(Direction.RIGHT),
+        Direction.DOWN,
+        Direction.DOWN.add(Direction.LEFT),
+        Direction.LEFT,
     };
 };
 
@@ -78,11 +127,20 @@ pub fn Grid(comptime T: type) type {
             return grid;
         }
 
+        pub fn newRegular(data: GridData, width: usize, height: usize) Grid(T) {
+            return Grid(T){
+                .data = data,
+                .stride = width,
+                .width = width,
+                .height = height,
+            };
+        }
+
         pub fn at(self: Grid(T), x: usize, y: usize) ?T {
             if (x >= self.width or y >= self.height) {
                 return null;
             }
-            return self.data.view()[y * (self.width + 1) + x];
+            return self.data.view()[y * self.stride + x];
         }
 
         pub fn indexToPoint(self: Grid(T), index: usize) Point {
@@ -111,17 +169,37 @@ pub fn Grid(comptime T: type) type {
         }
 
         pub fn ptrAt(self: *Grid(T), x: usize, y: usize) ?*T {
-            if (std.meta.Tag(self.data) != GridMutability.mutable) {
-                return null;
+            switch (self.data) {
+                GridMutability.mutable => {},
+                GridMutability.immutable => return null,
             }
             if (x >= self.width or y >= self.height) {
                 return null;
             }
-            return &self.data.mutable[y * (self.width + 1) + x];
+            return &self.data.mutable[y * self.stride + x];
+        }
+
+        pub fn ptrPoint(self: *Grid(T), p: Point) ?*T {
+            return self.ptrAt(@intCast(p.x), @intCast(p.y));
         }
 
         pub fn view(self: Grid(T)) []const T {
             return self.data.view();
+        }
+
+        pub fn print(self: Grid(T)) !void {
+            var out = std.io.getStdOut().writer();
+            for (0..self.height) |y| {
+                for (0..self.width) |x| {
+                    try out.print("{c}", .{self.at(x, y).?});
+                }
+                try out.print("\n", .{});
+            }
+        }
+
+        pub fn printReturn(self: Grid(T)) !void {
+            try std.io.getStdOut().writer().print("\x1b[1;1H", .{});
+            try self.print();
         }
     };
 }

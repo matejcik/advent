@@ -28,10 +28,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const gridlib = b.createModule(.{ .source_file = .{ .path = "src/gridlib.zig" } });
+    exe.addModule("gridlib", gridlib);
+    exe_unit_tests.addModule("gridlib", gridlib);
+
+    const all_deps = .{
+        .{ .name = "gridlib", .module = gridlib },
+    };
+
     for (0..25) |n| {
         const filename = b.fmt("src/day{:0>2}.zig", .{n});
         std.fs.cwd().access(filename, .{}) catch continue;
-        const day_mod = b.createModule(.{ .source_file = .{ .path = filename } });
+        const day_mod = b.createModule(.{ .source_file = .{ .path = filename }, .dependencies = &all_deps });
         exe.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
         exe_unit_tests.addModule(b.fmt("day{:0>2}", .{n}), day_mod);
     }

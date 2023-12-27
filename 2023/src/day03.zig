@@ -1,8 +1,9 @@
 const std = @import("std");
 const print = std.debug.print;
-const gridmod = @import("grid.zig");
-const Grid = gridmod.Grid;
-const Point = gridmod.Point;
+const gridlib = @import("gridlib");
+const Grid = gridlib.Grid;
+const Point = gridlib.Point;
+const Direction = gridlib.Direction;
 
 fn isPart(char: u8) bool {
     switch (char) {
@@ -11,13 +12,13 @@ fn isPart(char: u8) bool {
     }
 }
 
-fn findDigits(grid: Grid(u8), idx: usize, direction: Point) ?[2]usize {
+fn findDigits(grid: Grid(u8), idx: usize, direction: Direction) ?[2]usize {
     const p = grid.indexToPoint(idx);
-    var cur = p.add(direction);
+    var cur = p.step(direction);
     while (grid.contains(cur) and std.ascii.isDigit(grid.point(cur).?)) {
-        cur = cur.add(direction);
+        cur = cur.step(direction);
     }
-    const prev = cur.sub(direction);
+    const prev = cur.back(direction);
     const prev_idx = grid.pointToIndex(prev).?;
     if (prev_idx == idx) {
         return null;
@@ -34,7 +35,7 @@ fn findDigits(grid: Grid(u8), idx: usize, direction: Point) ?[2]usize {
     return .{ left_idx, right_idx };
 }
 
-fn findNum(grid: Grid(u8), idx: usize, direction: Point) ?usize {
+fn findNum(grid: Grid(u8), idx: usize, direction: Direction) ?usize {
     if (findDigits(grid, idx, direction)) |digits| {
         const numstr = grid.view()[digits[0]..digits[1]];
         return std.fmt.parseInt(usize, numstr, 10) catch unreachable;
@@ -77,8 +78,8 @@ fn findNumsLookBothSides(grid: Grid(u8), point: Point) NumResult {
         return result;
     }
     const center_idx = grid.pointToIndex(point).?;
-    const left_of = findDigits(grid, center_idx, Point.LEFT);
-    const right_of = findDigits(grid, center_idx, Point.RIGHT);
+    const left_of = findDigits(grid, center_idx, Direction.LEFT);
+    const right_of = findDigits(grid, center_idx, Direction.RIGHT);
     if (std.ascii.isDigit(grid.view()[center_idx])) {
         const left_idx = (left_of orelse .{ center_idx, center_idx })[0];
         const right_idx = (right_of orelse .{ center_idx, center_idx + 1 })[1];
@@ -101,18 +102,18 @@ fn partNumbersAround(grid: Grid(u8), idx: usize) NumResult {
     const p = grid.indexToPoint(idx);
     var result = NumResult.init();
     // left side
-    if (findNum(grid, idx, Point.LEFT)) |left_num| {
+    if (findNum(grid, idx, Direction.LEFT)) |left_num| {
         result.addNum(left_num);
     }
     // right side
-    if (findNum(grid, idx, Point.RIGHT)) |right_num| {
+    if (findNum(grid, idx, Direction.RIGHT)) |right_num| {
         result.addNum(right_num);
     }
     // top side
-    const top = p.add(Point.UP);
+    const top = p.step(Direction.UP);
     result = result.add(findNumsLookBothSides(grid, top));
     // bottom side
-    const bottom = p.add(Point.DOWN);
+    const bottom = p.step(Direction.DOWN);
     result = result.add(findNumsLookBothSides(grid, bottom));
 
     return result;
