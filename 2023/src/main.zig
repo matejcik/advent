@@ -55,6 +55,7 @@ const PARTS = [_]DayImpl{
     DayImpl.init(7, @import("day07")),
     DayImpl.init(8, @import("day08")),
     DayImpl.init(9, @import("day09")),
+    DayImpl.init(10, @import("day10")),
 };
 
 fn arith_mean(items: []const f64) f64 {
