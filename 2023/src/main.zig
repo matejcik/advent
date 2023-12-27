@@ -35,12 +35,13 @@ const DayImpl = struct {
         std.debug.print("Day {} Part {}: {s}\n", .{ self.day, part + 1, result });
     }
 
-    pub fn timeIt(self: DayImpl, alloc: std.mem.Allocator) !void {
+    pub fn timeIt(self: DayImpl, alloc: std.mem.Allocator) !f64 {
         const data = try self.loadData(alloc);
         defer alloc.free(data);
 
-        try timeit(self.day, 1, self.parts[0], data, alloc);
-        try timeit(self.day, 2, self.parts[1], data, alloc);
+        const a = try timeit(self.day, 1, self.parts[0], data, alloc);
+        const b = try timeit(self.day, 2, self.parts[1], data, alloc);
+        return a + b;
     }
 };
 
@@ -76,7 +77,7 @@ fn write_time(writer: anytype, time: f64) !void {
     }
 }
 
-fn timeit(day: u32, part: u8, F: *const SolverFunc, data: []const u8, alloc: std.mem.Allocator) !void {
+fn timeit(day: u32, part: u8, F: *const SolverFunc, data: []const u8, alloc: std.mem.Allocator) !f64 {
     var result_buf = [_]u8{0} ** 256;
     var timer = try std.time.Timer.start();
     const result = try F(data, alloc, &result_buf);
@@ -106,6 +107,7 @@ fn timeit(day: u32, part: u8, F: *const SolverFunc, data: []const u8, alloc: std
     _ = try writer.write(", max: ");
     try write_time(writer, max);
     try std.fmt.format(writer, " ({} tries)\t\tAnswer: {s}\n", .{ tries, result });
+    return mean;
 }
 
 const DayPart = struct {
@@ -164,10 +166,15 @@ pub fn main() !void {
 
     defer res.deinit();
 
+    var total: f64 = 0;
     if (res.positionals.len == 0) {
         for (PARTS) |part| {
-            try part.timeIt(alloc.allocator());
+            total += try part.timeIt(alloc.allocator());
         }
+        var writer = std.io.getStdOut().writer();
+        _ = try writer.write("Total time: ");
+        try write_time(writer, total);
+        _ = try writer.write("\n");
         return;
     }
 
