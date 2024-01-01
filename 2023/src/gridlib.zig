@@ -11,6 +11,10 @@ pub const Point = struct {
         };
     }
 
+    pub fn gridDistance(self: Point, other: Point) usize {
+        return @as(usize, @abs(self.x - other.x) + @abs(self.y - other.y));
+    }
+
     pub fn add(self: Point, other: Point) Point {
         return Point{
             .x = self.x + other.x,
@@ -88,15 +92,46 @@ pub fn Grid(comptime T: type) type {
     const GridMutability = enum {
         mutable,
         immutable,
+        owned,
     };
     const GridData = union(GridMutability) {
         mutable: []T,
         immutable: []const T,
+        owned: struct {
+            data: []T,
+            allocator: std.mem.Allocator,
+        },
 
         pub fn view(self: @This()) []const T {
             switch (self) {
                 GridMutability.mutable => return self.mutable,
                 GridMutability.immutable => return self.immutable,
+                GridMutability.owned => return self.owned.data,
+            }
+        }
+
+        pub fn viewMut(self: @This()) ![]T {
+            switch (self) {
+                GridMutability.mutable => return self.mutable,
+                GridMutability.immutable => return error.Immutable,
+                GridMutability.owned => return self.owned.data,
+            }
+        }
+
+        pub fn alloc(allocator: std.mem.Allocator, size: usize) !@This() {
+            return @This(){ .owned = .{
+                .data = try allocator.alloc(T, size),
+                .allocator = allocator,
+            } };
+        }
+
+        pub fn deinit(self: @This()) void {
+            switch (self) {
+                GridMutability.mutable => {},
+                GridMutability.immutable => {},
+                GridMutability.owned => {
+                    self.owned.allocator.free(self.owned.data);
+                },
             }
         }
     };
@@ -127,9 +162,22 @@ pub fn Grid(comptime T: type) type {
             return grid;
         }
 
+        pub fn deinit(self: Grid(T)) void {
+            self.data.deinit();
+        }
+
         pub fn newRegular(data: GridData, width: usize, height: usize) Grid(T) {
             return Grid(T){
                 .data = data,
+                .stride = width,
+                .width = width,
+                .height = height,
+            };
+        }
+
+        pub fn newAlloc(allocator: std.mem.Allocator, width: usize, height: usize) !Grid(T) {
+            return Grid(T){
+                .data = try GridData.alloc(allocator, width * height),
                 .stride = width,
                 .width = width,
                 .height = height,
@@ -169,14 +217,11 @@ pub fn Grid(comptime T: type) type {
         }
 
         pub fn ptrAt(self: *Grid(T), x: usize, y: usize) ?*T {
-            switch (self.data) {
-                GridMutability.mutable => {},
-                GridMutability.immutable => return null,
-            }
+            const buffer = self.viewMut() catch return null;
             if (x >= self.width or y >= self.height) {
                 return null;
             }
-            return &self.data.mutable[y * self.stride + x];
+            return &buffer[y * self.stride + x];
         }
 
         pub fn ptrPoint(self: *Grid(T), p: Point) ?*T {
@@ -185,6 +230,21 @@ pub fn Grid(comptime T: type) type {
 
         pub fn view(self: Grid(T)) []const T {
             return self.data.view();
+        }
+
+        pub fn viewMut(self: Grid(T)) ![]T {
+            return self.data.viewMut();
+        }
+
+        pub fn line(self: Grid(T), y: usize) ?[]const T {
+            const idx = self.pointToIndex(Point.new(0, @intCast(y))) orelse return null;
+            return self.data.view()[idx .. idx + self.width];
+        }
+
+        pub fn lineMut(self: Grid(T), y: usize) ?[]T {
+            var buffer = self.data.viewMut() catch return null;
+            const idx = self.pointToIndex(Point.new(0, @intCast(y))) orelse return null;
+            return buffer[idx .. idx + self.width];
         }
 
         pub fn print(self: Grid(T)) !void {
