@@ -35,12 +35,16 @@ const DayImpl = struct {
         std.debug.print("Day {} Part {}: {s}\n", .{ self.day, part + 1, result });
     }
 
-    pub fn timeIt(self: DayImpl, alloc: std.mem.Allocator) !f64 {
+    pub fn timePart(self: DayImpl, part: u8, alloc: std.mem.Allocator) !f64 {
         const data = try self.loadData(alloc);
         defer alloc.free(data);
 
-        const a = try timeit(self.day, 1, self.parts[0], data, alloc);
-        const b = try timeit(self.day, 2, self.parts[1], data, alloc);
+        return timeit(self.day, part + 1, self.parts[@as(usize, part)], data, alloc);
+    }
+
+    pub fn timeIt(self: DayImpl, alloc: std.mem.Allocator) !f64 {
+        const a = try self.timePart(0, alloc);
+        const b = try self.timePart(1, alloc);
         return a + b;
     }
 };
@@ -174,14 +178,11 @@ pub fn main() !void {
         for (PARTS) |part| {
             total += try part.timeIt(alloc.allocator());
         }
-        var writer = std.io.getStdOut().writer();
-        _ = try writer.write("Total time: ");
-        try write_time(writer, total);
-        _ = try writer.write("\n");
-        return;
+    } else for (res.positionals) |task| {
+        total += try PARTS[task.day].timePart(task.part, alloc.allocator());
     }
-
-    for (res.positionals) |task| {
-        try PARTS[task.day].runPart(task.part, alloc.allocator());
-    }
+    var writer = std.io.getStdOut().writer();
+    _ = try writer.write("Total time: ");
+    try write_time(writer, total);
+    _ = try writer.write("\n");
 }
