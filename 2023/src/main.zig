@@ -147,6 +147,7 @@ pub fn main() !void {
     // We can use `parseParamsComptime` to parse a string into an array of `Param(Help)`
     const params = comptime clap.parseParamsComptime(
         \\-h, --help             Display this help and exit.
+        \\-1, --single           Run each task once, do not time results.
         \\<TASK>...
         \\
         \\Specify TASK as day:part to run a specific part of a specific day. When no
@@ -182,10 +183,16 @@ pub fn main() !void {
             total += try part.timeIt(alloc.allocator());
         }
     } else for (res.positionals) |task| {
-        total += try PARTS[task.day].timePart(task.part, alloc.allocator());
+        if (res.args.single > 0) {
+            try PARTS[task.day].runPart(task.part, alloc.allocator());
+        } else {
+            total += try PARTS[task.day].timePart(task.part, alloc.allocator());
+        }
     }
-    var writer = std.io.getStdOut().writer();
-    _ = try writer.write("Total time: ");
-    try write_time(writer, total);
-    _ = try writer.write("\n");
+    if (res.args.single == 0) {
+        var writer = std.io.getStdOut().writer();
+        _ = try writer.write("Total time: ");
+        try write_time(writer, total);
+        _ = try writer.write("\n");
+    }
 }
