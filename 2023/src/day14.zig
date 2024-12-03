@@ -54,18 +54,8 @@ pub fn part1novec(data: []const u8) u32 {
     return sum(u32, &totals);
 }
 
-pub fn part1vec(data: []const u8, alloc: std.mem.Allocator) u32 {
-    const gridpat = Grid.new(.{ .immutable = data }, '\n');
-
-    // preallocate a longer buffer, so that when we try to read a line whose width is
-    // a multiple of SIMD_WORDS, all the data is still in the buffer
-    // (the trailing part is going to be noise from the next line, but we don't care)
-    var data_extended = alloc.alloc(u8, data.len + SIMD_WORDS) catch unreachable;
-    defer alloc.free(data_extended);
-    @memcpy(data_extended[0..data.len], data);
-
-    var grid = Grid.new(.{ .immutable = data_extended }, '\n');
-    grid.height = gridpat.height;
+pub fn northLoad(grid: *const Grid) u32 {
+    std.debug.assert(grid.stride * grid.height + SIMD_WORDS <= grid.view().len);
 
     const Item = struct {
         breaks: U8Vec,
@@ -80,17 +70,6 @@ pub fn part1vec(data: []const u8, alloc: std.mem.Allocator) u32 {
         .stones = @splat(0),
         .totals = @splat(0),
     }} ** MAX_WIDTH;
-
-    // // set up the vectors:
-    // // breaks are the #stops for each column
-    // var breaks = [_]U8Vec{@splat(@intCast(grid.height))} ** (MAX_WIDTH / SIMD_WORDS);
-    // // stones are the number of stones already piled on the previous break
-    // var stones = [_]U8Vec{@splat(0)} ** (MAX_WIDTH / SIMD_WORDS);
-    // // totals are the sum of the stone values
-    // var totals = [_]U16Vec{@splat(0)} ** (MAX_WIDTH / SIMD_WORDS);
-
-    // number of vectors that fit the whole line
-    // const elems = (grid.width + SIMD_WORDS - 1) / SIMD_WORDS;
 
     for (0..grid.height) |y| {
         // grab index of the first element of the line
@@ -131,15 +110,63 @@ pub fn part1vec(data: []const u8, alloc: std.mem.Allocator) u32 {
         }
     }
 
-    // std.debug.print("\nsimd column totals: ", .{});
-    // for (0..grid.width) |x| {
-    //     const simd = totals[x / SIMD_WORDS];
-    //     const totall = simd[x % SIMD_WORDS];
-    //     std.debug.print("{} ", .{totall});
-    // }
-    // std.debug.print("\n", .{});
-
     return total;
+}
+
+test "part1 example novec" {
+    const total = part1novec(PART1_EXAMPLE);
+    try std.testing.expectEqual(total, 136);
+}
+
+test "part1 example vec" {
+    const grid = expandForSimd(PART1_EXAMPLE, std.testing.allocator);
+    defer std.testing.allocator.free(grid.data.mutable);
+    const total = northLoad(&grid);
+    try std.testing.expectEqual(total, 136);
+}
+
+fn expandForSimd(data: []const u8, alloc: std.mem.Allocator) Grid {
+    const gridpat = Grid.new(.{ .immutable = data }, '\n');
+
+    // preallocate a longer buffer, so that when we try to read a line whose width is
+    // a multiple of SIMD_WORDS, all the data is still in the buffer
+    // (the trailing part is going to be noise from the next line, but we don't care)
+    var data_extended = alloc.alloc(u8, data.len + SIMD_WORDS) catch unreachable;
+    @memcpy(data_extended[0..data.len], data);
+
+    var grid = Grid.new(.{ .mutable = data_extended }, '\n');
+    grid.height = gridpat.height;
+
+    return grid;
+}
+
+pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
+    const grid = expandForSimd(data, alloc);
+    defer alloc.free(grid.data.mutable);
+
+    const total = northLoad(&grid);
+    return std.fmt.bufPrint(result_buf, "{}", .{total});
+}
+
+fn spinStep(view: []u8, start: usize, row_stride: isize, row_count: usize, step: isize, step_count: usize) void {
+    for (0..step_count) |i| {
+        const row_start = @as(isize, @intCast(start)) + @as(isize, @intCast(i)) * step;
+        var next_stone = row_start;
+        for (0..row_count) |j| {
+            const cur = row_start + @as(isize, @intCast(j)) * row_stride;
+            switch (view[@intCast(cur)]) {
+                '#' => {
+                    next_stone = cur + row_stride;
+                },
+                'O' => {
+                    view[@intCast(cur)] = '.';
+                    view[@intCast(next_stone)] = 'O';
+                    next_stone += row_stride;
+                },
+                else => {},
+            }
+        }
+    }
 }
 
 const PART1_EXAMPLE =
@@ -156,25 +183,78 @@ const PART1_EXAMPLE =
     \\
 ;
 
-test "part1 example novec" {
-    const total = part1novec(PART1_EXAMPLE);
-    try std.testing.expectEqual(total, 136);
+const SPIN_NORTH_DATA =
+    \\OOOO.#.O..
+    \\OO..#....#
+    \\OO..O##..O
+    \\O..#.OO...
+    \\........#.
+    \\..#....#.#
+    \\..O..#.O.O
+    \\..O.......
+    \\#....###..
+    \\#....#....
+    \\
+;
+
+test "spin step" {
+    const buf = std.testing.allocator.alloc(u8, PART1_EXAMPLE.len) catch unreachable;
+    defer std.testing.allocator.free(buf);
+    @memcpy(buf, PART1_EXAMPLE);
+    const gridpat = Grid.new(.{ .mutable = buf }, '\n');
+
+    // spin step north
+    spinStep(buf, 0, @intCast(gridpat.stride), gridpat.height, 1, gridpat.width);
+
+    std.debug.print("\nspin north:\n{s}", .{buf});
+
+    try std.testing.expect(std.mem.eql(u8, buf, SPIN_NORTH_DATA));
 }
 
-test "part1 example vec" {
-    const total = part1vec(PART1_EXAMPLE, std.testing.allocator);
-    try std.testing.expectEqual(total, 136);
-}
-
-pub fn part1(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
-    // _ = alloc;
-    // const total = part1novec(data);
-    const total = part1vec(data, alloc);
-    return std.fmt.bufPrint(result_buf, "{}", .{total});
+fn spinCycle(grid: *Grid) void {
+    const buf = grid.viewMut() catch unreachable;
+    // tilt north
+    spinStep(buf, 0, @intCast(grid.stride), grid.height, 1, grid.width);
+    // tilt west
+    spinStep(buf, 0, 1, grid.width, @intCast(grid.stride), grid.height);
+    // tilt south
+    spinStep(buf, @intCast((grid.height - 1) * grid.stride), -@as(isize, @intCast(grid.stride)), grid.height, 1, grid.width);
+    // tilt east
+    spinStep(buf, @intCast(grid.width - 1), -1, grid.width, @intCast(grid.stride), grid.height);
 }
 
 pub fn part2(data: []const u8, alloc: std.mem.Allocator, result_buf: []u8) anyerror![]const u8 {
-    _ = data;
-    _ = alloc;
-    return result_buf;
+    const gridpat = Grid.new(.{ .immutable = data }, '\n');
+
+    const DESIRED_CYCLES = 1_000_000_000;
+
+    // preallocate a longer buffer, so that when we try to read a line whose width is
+    // a multiple of SIMD_WORDS, all the data is still in the buffer
+    // (the trailing part is going to be noise from the next line, but we don't care)
+    var data_extended = alloc.alloc(u8, data.len + SIMD_WORDS) catch unreachable;
+    defer alloc.free(data_extended);
+    @memcpy(data_extended[0..data.len], data);
+
+    var loads = try std.ArrayList(u32).initCapacity(alloc, 1000);
+    defer loads.deinit();
+
+    var grid = Grid.new(.{ .mutable = data_extended }, '\n');
+    grid.height = gridpat.height;
+
+    while (true) {
+        spinCycle(&grid);
+        const load = northLoad(&grid);
+        for (loads.items, 0..) |l, i| {
+            if (l == load) {
+                const cycles_looping: u64 = DESIRED_CYCLES - i - 1;
+                const cycle_len: u64 = loads.items.len - i;
+                const result_load_idx = cycles_looping % cycle_len;
+                const result = loads.items[@intCast(result_load_idx)];
+                return std.fmt.bufPrint(result_buf, "{}", .{result});
+            }
+        }
+        try loads.append(load);
+    }
+
+    return error.CycleNotFound;
 }
