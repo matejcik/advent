@@ -24,8 +24,8 @@ class RuleSet:
             next.remove(n)
             if next & self.comes_before[n]:
                 return False
-            if prev & self.comes_after[n]:
-                return False
+            # if prev & self.comes_after[n]:
+            #     return False
             prev.add(n)
         return True
     
