@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import adventlib
+
 HERE = Path(__file__).parent
 
 PROGRAM_TXT = HERE / "input" / "03.txt"
@@ -9,6 +11,7 @@ PROGRAM = PROGRAM_TXT.read_text()
 PROGRAM_RE = re.compile(r"(do)\(\)|(don't)\(\)|(mul)\((\d{1,3}),(\d{1,3})\)")
 
 
+@adventlib.timeit()
 def part1_mul_all(program: str) -> int:
     total = 0
     for match in PROGRAM_RE.finditer(program):
@@ -18,6 +21,7 @@ def part1_mul_all(program: str) -> int:
     return total
 
 
+@adventlib.timeit()
 def part2_mul_some(program: str) -> int:
     total = 0
     enabled = True
