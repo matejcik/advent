@@ -15,7 +15,7 @@ def load_input() -> np.ndarray:
     return np.array(lines, dtype=np.uint8)
 
 
-def testneedle(haystack: np.array) -> bool:
+def testneedle(haystack: np.ndarray) -> bool:
     b = haystack.tobytes()
     return b == NEEDLE or b == NEEDLE_BACKWARDS
 
