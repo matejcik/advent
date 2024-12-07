@@ -3,8 +3,10 @@ from collections import defaultdict
 
 import adventlib
 
+
 def _dict_of_sets() -> dict[int, set[int]]:
     return defaultdict(set)
+
 
 @dataclass
 class RuleSet:
@@ -28,7 +30,7 @@ class RuleSet:
             #     return False
             prev.add(n)
         return True
-    
+
     def sort_set(self, numbers: set[int]) -> list[int]:
         if len(numbers) <= 1:
             return list(numbers)

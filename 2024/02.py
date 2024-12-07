@@ -48,6 +48,7 @@ class Report:
                 return True
         return False
 
+
 def main():
     with open("input/02.txt") as f:
         reports = [Report.parse(line) for line in f]
