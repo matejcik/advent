@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import time
 import typing as t
@@ -29,18 +31,24 @@ class Point(t.NamedTuple):
     x: int
     y: int
 
-    def __add__(self, other):
+    def __add__(self, other) -> Point:
         return Point(self.x + other.x, self.y + other.y)
 
-    def rotate_right(self):
+    def __sub__(self, other) -> Point:
+        return Point(self.x - other.x, self.y - other.y)
+
+    def __neg__(self) -> Point:
+        return Point(-self.x, -self.y)
+
+    def rotate_right(self) -> Point:
         return Point(-self.y, self.x)
 
-    def rotate_left(self):
+    def rotate_left(self) -> Point:
         return Point(self.y, -self.x)
 
 
 class Directions(Enum):
     UP = Point(0, -1)
+    RIGHT = Point(1, 0)
     DOWN = Point(0, 1)
     LEFT = Point(-1, 0)
-    RIGHT = Point(1, 0)

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import typing as t
 
 from adventlib import timeit, Directions, Point
@@ -39,6 +39,46 @@ class Grid:
 
     def __contains__(self, pos: Point) -> bool:
         return 0 <= pos.x < self.width and 0 <= pos.y < self.height
+
+
+class Ray(t.NamedTuple):
+    """Straight axis-parallel ray on a grid."""
+
+    a: Point
+    b: Point
+    direction: Point
+    exits: bool
+
+    @classmethod
+    def cast(cls, start: Point, direction: Point, grid: Grid) -> t.Self:
+        """Cast a ray from a point in a given direction."""
+        next = start
+        while next in grid:
+            end = next
+            next = end + direction
+            if next in grid.obstacles:
+                return cls(start, end, direction, False)
+        return cls(start, end, direction, True)
+
+    def __len__(self) -> int:
+        # assuming that the ray is axis-parallel, so either X or Y is going to be zero
+        return abs(self.b.x - self.a.x) + abs(self.b.y - self.a.y)
+
+
+def intersect(left: Ray, right: Ray) -> bool:
+    if left.a == right.b or left.b == right.a:
+        return False
+    if (left.direction.x == 0) == (right.direction.x == 0):
+        # both are on the same axis. there is no intersection if we got these rays
+        # by casting in the same grid.
+        return False
+    # order the rays by which is parallel to the X axis
+    x_ray, y_ray = (left, right) if left.direction.y == 0 else (right, left)
+    x_min = min(x_ray.a.x, x_ray.b.x)
+    x_max = max(x_ray.a.x, x_ray.b.x)
+    y_min = min(y_ray.a.y, y_ray.b.y)
+    y_max = max(y_ray.a.y, y_ray.b.y)
+    return x_min <= y_ray.a.x <= x_max and y_min <= x_ray.a.y <= y_max
 
 
 @dataclass
@@ -86,6 +126,11 @@ class GridWalk:
         return False
 
 
+@dataclass
+class GridWalkRayCast:
+    grid: Grid
+
+
 @timeit()
 def guard_walk(grid: Grid) -> int:
     positions = set()
@@ -99,6 +144,33 @@ def guard_walk(grid: Grid) -> int:
         else:
             pos = next_pos
     return len(positions)
+
+
+@timeit()
+def guard_walk_raycast(grid: Grid) -> int:
+    xrays = []
+    yrays = []
+    pos = grid.guard_pos
+    dir = grid.guard_dir
+    while True:
+        ray = Ray.cast(pos, dir, grid)
+        if dir.x == 0:
+            xrays.append(ray)
+        else:
+            yrays.append(ray)
+        if ray.exits:
+            break
+        pos = ray.b
+        dir = dir.rotate_right()
+
+    # sum the total length of the rays
+    total = 1 + sum(map(len, xrays)) + sum(map(len, yrays))
+    # # subtract all nontrivial interesctions
+    for xray in xrays:
+        intersections = sum(intersect(xray, r) for r in yrays)
+        total -= intersections
+
+    return total
 
 
 @timeit()
@@ -119,6 +191,11 @@ def guard_loop(grid: Grid) -> int:
         walk.current_pos = next_pos
         walk.walked_positions.add((walk.current_pos, walk.current_dir))
     return total
+
+
+@timeit()
+def guard_loop_raycast(grid: Grid) -> int:
+    pass
 
 
 def test_guard_loop():
@@ -142,4 +219,5 @@ if __name__ == "__main__":
     with open("input/06.txt") as f:
         grid = Grid.parse(f)
     print(f"Part 1: {guard_walk(grid)=}")
+    print(f"Part 1 alt: {guard_walk_raycast(grid)=}")
     print(f"Part 2: {guard_loop(grid)=}")
