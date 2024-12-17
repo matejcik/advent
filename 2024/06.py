@@ -13,10 +13,10 @@ class Grid:
     height: int
 
     DIRECTIONS: t.ClassVar[dict[str, Point]] = {
-        "v": Directions.DOWN.value,
-        "^": Directions.UP.value,
-        "<": Directions.LEFT.value,
-        ">": Directions.RIGHT.value,
+        "v": Directions.DOWN,
+        "^": Directions.UP,
+        "<": Directions.LEFT,
+        ">": Directions.RIGHT,
     }
 
     @classmethod
@@ -195,7 +195,7 @@ def guard_loop(grid: Grid) -> int:
 
 @timeit()
 def guard_loop_raycast(grid: Grid) -> int:
-    pass
+    raise NotImplemented
 
 
 def test_guard_loop():

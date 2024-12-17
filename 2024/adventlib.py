@@ -3,7 +3,10 @@ from __future__ import annotations
 import functools
 import time
 import typing as t
-from enum import Enum
+
+import numpy as np
+
+D = t.TypeVar("D")
 
 
 def timeit(limit: float = 2.0):
@@ -47,8 +50,44 @@ class Point(t.NamedTuple):
         return Point(self.y, -self.x)
 
 
-class Directions(Enum):
+class Fastgrid:
+    def __init__(self, grid: np.ndarray):
+        self.grid = grid
+        self.width = grid.shape[0]
+        self.height = grid.shape[1]
+
+    def __contains__(self, pos: Point) -> bool:
+        return 0 <= pos.x < self.width and 0 <= pos.y < self.height
+
+    def get(self, pos: Point, default: D = None) -> int | D:
+        if not pos in self:
+            return default
+        return self.grid[*pos]
+
+    def __getitem__(self, pos: Point) -> int:
+        return self.grid[*pos]
+
+    def __iter__(self) -> t.Iterator[Point]:
+        return (Point(x, y) for y in range(self.height) for x in range(self.width))
+
+    @classmethod
+    def load(cls, lines: t.Iterator[bytes]) -> t.Self:
+        rows = []
+        for line in lines:
+            if not line or line == "\n":
+                break
+            rows.append(line)
+
+        array = np.array(rows)
+        grid = array.view("i1").reshape((array.size), -1)
+        return cls(grid.transpose()[:-1, :])
+
+
+class Directions:
     UP = Point(0, -1)
     RIGHT = Point(1, 0)
     DOWN = Point(0, 1)
     LEFT = Point(-1, 0)
+
+
+DIRECTIONS = [Directions.UP, Directions.RIGHT, Directions.DOWN, Directions.LEFT]
